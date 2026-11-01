@@ -1,5 +1,26 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
+@plugin "daisyui" {
+  themes: false;
+  include: hover3d;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hover-3d {
+    --transform: 0, 0 !important;
+    --shadow: 0rem 0rem !important;
+    filter: none !important;
+    transition: none !important;
+  }
+
+  .hover-3d > :first-child {
+    transition: none !important;
+  }
+
+  .hover-3d:hover > :first-child {
+    scale: 1;
+  }
+}
 
 /* ═══════════════════════════════════════════════════════════
    DARK MODE  — slate-neutral base, warm saffron primary,
@@ -134,6 +155,23 @@ body {
 }
 .no-transition, .no-transition * { transition: none !important; }
 
+/* Restore the transform transitions from DaisyUI's layered hover-3d styles. */
+@media (prefers-reduced-motion: no-preference) {
+  .hover-3d {
+    transition: filter 240ms ease-out;
+  }
+
+  .hover-3d > :first-child {
+    transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+                scale 240ms cubic-bezier(0.16, 1, 0.3, 1),
+                outline-color 240ms ease-out;
+  }
+
+  .hover-3d > :first-child::before {
+    transition: translate 240ms ease-out, opacity 240ms ease-out;
+  }
+}
+
 :lang(km), .km {
   font-family: 'Noto Sans Khmer', system-ui, sans-serif;
   line-height: 1.9;
@@ -266,9 +304,9 @@ input, select, textarea { font-size: 16px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  min-height: unset;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
   border-radius: 0.5rem;
   background: var(--bg-elevated);
   border: 1px solid var(--bg-border);
@@ -881,9 +919,9 @@ input, select, textarea { font-size: 16px; }
   background: var(--bg-elevated);
 }
 .qty-stepper button {
-  width: 36px;
-  height: 36px;
-  min-height: unset;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -895,7 +933,7 @@ input, select, textarea { font-size: 16px; }
 .qty-stepper button:hover  { background: var(--bg-hover); }
 .qty-stepper button:active { background: var(--bg-border); }
 .qty-stepper span {
-  min-width: 36px;
+  min-width: 44px;
   text-align: center;
   font-size: 0.92rem;
   font-weight: 700;
@@ -906,6 +944,25 @@ input, select, textarea { font-size: 16px; }
 /* Larger stepper for modal */
 .qty-stepper-lg button { width: 44px; height: 44px; font-size: 1.15rem; }
 .qty-stepper-lg span   { min-width: 44px; font-size: 1rem; }
+
+.cart-trigger {
+  width: 56px;
+  height: 56px;
+  min-height: 56px;
+  cursor: pointer;
+}
+.cart-drawer {
+  height: 100%;
+  height: 100dvh;
+  animation: cartSlideIn 0.24s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes cartSlideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cart-drawer { animation: none; }
+}
 
 /* ═══════════════════════════════════════════════════════════
    SITE FOOTER

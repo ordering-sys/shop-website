@@ -27,7 +27,7 @@ test('sends summary before photos to each distinct staff chat', async () => {
     calls.push({ method: url.split('/').at(-1), ...JSON.parse(init.body) })
     return { ok: true }
   })
-  await api.sendTelegram('<b>Order</b>', [{ url: 'https://images.example.com/item.jpg', caption: '2 × Coffee & milk' }])
+  assert.equal(await api.sendTelegram('<b>Order</b>', [{ url: 'https://images.example.com/item.jpg', caption: '2 × Coffee & milk' }]), true)
   for (const id of ['1', '2']) {
     const sent = calls.filter(call => call.chat_id === id)
     assert.deepEqual(sent.map(call => call.method), ['sendMessage', 'sendPhoto'])
@@ -45,7 +45,7 @@ test('photo rejection and network failure do not stop subsequent images or other
     if (body.chat_id === '1') throw new Error('Network unavailable')
     return { ok: !url.endsWith('sendPhoto'), status: 400 }
   })
-  await api.sendTelegram('Order', [{ url: 'https://example.com/a.png', caption: 'A' }, { url: 'https://example.com/b.png', caption: 'B' }])
+  assert.equal(await api.sendTelegram('Order', [{ url: 'https://example.com/a.png', caption: 'A' }, { url: 'https://example.com/b.png', caption: 'B' }]), true)
   assert.equal(calls.filter(call => call.chat_id === '2').length, 3)
 })
 
@@ -59,26 +59,34 @@ test('skips invalid image schemes and bounds photo captions', async () => {
 
 test('missing Telegram configuration makes no requests', async () => {
   let calls = 0
-  await telegram({}, async () => { calls++; return { ok: true } }).sendTelegram('Order')
+  assert.equal(await telegram({}, async () => { calls++; return { ok: true } }).sendTelegram('Order'), false)
   assert.equal(calls, 0)
 })
 
+test('reports failure when every staff chat rejects the alert', async () => {
+  const api = telegram({ TELEGRAM_BOT_TOKEN: 'test-only', TELEGRAM_CHAT_ID: '1' }, async () => ({ ok: false, status: 500 }))
+  assert.equal(await api.sendTelegram('Order'), false)
+})
+
 async function submitWithMenu(menuResult) {
-  const alerts = []
-  const inserts = []
-  const api = load('../app/(site)/order/actions.ts', {}, {
+  const alerts = [], inserts = []
+  const api = load('../types/order/actions.ts', {}, {
     '@/lib/table-access': { checkTableAccess: async () => ({ number: 'T1' }) },
     '@/lib/supabase/admin': { createAdminClient: () => ({ from: table => table === 'orders'
-      ? { insert: value => { inserts.push(value); return { select: () => ({ single: async () => ({ data: { id: 'order-123456' }, error: null }) }) } } }
+      ? {
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+        insert: value => { inserts.push(value); return { select: () => ({ single: async () => ({ data: { id: value.id }, error: null }) }) } },
+      }
       : { select: () => { const query = { in: () => query, eq: async () => menuResult }; return query } } }) },
     '@/lib/telegram': { sendTelegram: async (...args) => alerts.push(args) },
+    '@/lib/sugar': load('../lib/sugar.ts'),
   })
-  const result = await api.submitOrder({ tableId: 'T1', token: 'valid-token', location: { latitude: 11.5564, longitude: 104.9282, accuracy: 20 }, items: [{ id: 'coffee', price: 0.01, name_en: 'Fake', quantity: 2, notes: 'Less sugar', image_url: 'https://untrusted.example.com/client.jpg' }] })
+  const result = await api.submitOrder({ tableId: 'T1', token: 'valid-token', requestId: '11111111-1111-4111-8111-111111111111', location: { latitude: 11.5564, longitude: 104.9282, accuracy: 20 }, items: [{ id: 'coffee', price: 0.01, name_en: 'Fake', quantity: 2, notes: 'Less sugar', image_url: 'https://untrusted.example.com/client.jpg' }] })
   return { result, alerts, inserts }
 }
 
 test('order photos use database URLs and captions identify order, quantity and notes', async () => {
-  const { result, alerts, inserts } = await submitWithMenu({ data: [{ id: 'coffee', name_en: 'Coffee <milk>', name_km: 'Coffee', price: 4, image_url: 'https://images.example.com/saved.jpg' }], error: null })
+  const { result, alerts, inserts } = await submitWithMenu({ data: [{ id: 'coffee', name_en: 'Coffee <milk>', name_km: 'Coffee', price: 4, category: 'Coffee', available: true, image_url: 'https://images.example.com/saved.jpg' }], error: null })
   assert.equal(result.success, true)
   assert.equal(inserts[0].total, 8)
   assert.equal(inserts[0].items[0].price, 4)

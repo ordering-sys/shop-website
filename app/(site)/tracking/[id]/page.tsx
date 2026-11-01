@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { CheckCircle, Clock, ChefHat, Sparkles, Phone } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { type Order } from '@/lib/types'
 import { sendWaiterAlert } from './actions'
+import { consumeOrderPlaced, readOrderAccess } from '@/lib/order-access'
+import { getLocation } from '@/lib/location'
 import { useTheme } from '@/lib/theme-context'
 import { t } from '@/lib/i18n'
 
@@ -20,20 +22,46 @@ export default function TrackingPage() {
   const [loading, setLoading]           = useState(true)
   const [callingWaiter, setCallingWaiter] = useState(false)
   const [waiterCalled, setWaiterCalled] = useState(false)
+  const [orderAccess, setOrderAccess] = useState<ReturnType<typeof readOrderAccess>>(null)
+  const [waiterError, setWaiterError] = useState(false)
+  const [justPlaced, setJustPlaced] = useState(false)
+  const [realtimeConnected, setRealtimeConnected] = useState(false)
+  const [syncError, setSyncError] = useState(false)
+  const [retryKey, setRetryKey] = useState(0)
+  const callingWaiterRef = useRef(false)
 
   const supabase = useMemo(() => createClient(), [])
+
+  useEffect(() => {
+    let active = true
+    queueMicrotask(() => {
+      if (!active) return
+      setOrderAccess(readOrderAccess(orderId))
+      setJustPlaced(consumeOrderPlaced(orderId))
+    })
+    return () => { active = false }
+  }, [orderId])
 
   useEffect(() => {
     if (!orderId) return
     let cancelled = false
 
+    function applyOrder(next: Order) {
+      setOrder(previous => previous && Date.parse(next.updated_at) < Date.parse(previous.updated_at) ? previous : next)
+    }
+
     async function load() {
       try {
-        const { data, error } = await supabase.from('orders').select('*').eq('id', orderId).single()
+        const { data, error } = await supabase.from('orders').select('*').eq('id', orderId).maybeSingle()
         if (error) throw error
-        if (!cancelled) setOrder(data)
+        if (!cancelled) {
+          if (data) applyOrder(data)
+          else setOrder(null)
+          setSyncError(false)
+        }
       } catch (err) {
         console.error(err)
+        if (!cancelled) setSyncError(true)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -44,24 +72,55 @@ export default function TrackingPage() {
     const ch = supabase
       .channel(`order_${orderId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` },
-        p => setOrder(p.new as Order))
-      .subscribe()
+        p => {
+          if (!cancelled) {
+            applyOrder(p.new as Order)
+            setSyncError(false)
+          }
+        })
+      .subscribe(status => {
+        if (!cancelled) setRealtimeConnected(status === 'SUBSCRIBED')
+      })
 
-    return () => { cancelled = true; void supabase.removeChannel(ch) }
-  }, [orderId, supabase])
+    const refresh = () => { if (!document.hidden) void load() }
+    const interval = window.setInterval(refresh, 15000)
+    window.addEventListener('focus', refresh)
+    window.addEventListener('online', refresh)
+    document.addEventListener('visibilitychange', refresh)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('online', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+      void supabase.removeChannel(ch)
+    }
+  }, [orderId, supabase, retryKey])
 
   async function callWaiter() {
-    if (!order || waiterCalled || callingWaiter) return
+    if (!order || !orderAccess || waiterCalled || callingWaiterRef.current) return
+    callingWaiterRef.current = true
     setCallingWaiter(true)
-    try { await sendWaiterAlert(order.id); setWaiterCalled(true) }
-    catch (e) { console.error(e) }
-    finally { setCallingWaiter(false) }
+    setWaiterError(false)
+    try {
+      await sendWaiterAlert(order.id, { ...orderAccess, location: await getLocation() })
+      setWaiterCalled(true)
+    } catch (e) { console.error(e); setWaiterError(true) }
+    finally { callingWaiterRef.current = false; setCallingWaiter(false) }
   }
+
+  const successNotice = justPlaced && (
+    <p role="status" className="rounded-xl border px-4 py-3 text-center font-semibold" style={{ background: 'var(--fresh-glow)', borderColor: 'var(--fresh)', color: 'var(--fresh)' }}>
+      {t('orderPlacedSuccess', lang)}
+    </p>
+  )
 
   /* ── Loading ── */
   if (loading) {
     return (
       <div className="mx-auto max-w-lg px-4 py-8 space-y-4">
+        {successNotice}
         <div className="skeleton h-24 rounded-2xl" />
         <div className="skeleton h-64 rounded-2xl" />
         <div className="skeleton h-48 rounded-2xl" />
@@ -72,11 +131,13 @@ export default function TrackingPage() {
   if (!order) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+        {successNotice}
         <div className="w-16 h-16 rounded-full flex items-center justify-center text-2xl"
           style={{ background: 'rgba(224,82,82,0.1)', border: '1px solid rgba(224,82,82,0.3)' }}>
           ⚠️
         </div>
-        <p className="font-bold text-lg serif" style={{ color: 'var(--text-primary)' }}>{t('orderNotFound', lang)}</p>
+        <p className="font-bold text-lg serif" style={{ color: 'var(--text-primary)' }}>{t(syncError ? 'trackingUnavailable' : 'orderNotFound', lang)}</p>
+        {syncError && <button type="button" onClick={() => setRetryKey(value => value + 1)} className="btn-primary">{t('tryAgain', lang)}</button>}
       </div>
     )
   }
@@ -114,6 +175,7 @@ export default function TrackingPage() {
       </div>
 
       <div className="mx-auto max-w-lg px-4 py-6 space-y-4">
+        {successNotice}
 
         {/* ── Status card ── */}
         <div className="card p-6 text-center">
@@ -133,7 +195,7 @@ export default function TrackingPage() {
               className="absolute top-4 left-[calc(16.67%)] h-0.5 transition-all duration-700"
               style={{
                 background: 'var(--primary)',
-                width: currentIdx === 0 ? '0%' : currentIdx === 1 ? '50%' : '100%',
+                width: currentIdx <= 0 ? '0%' : currentIdx === 1 ? '50%' : '100%',
               }}
               aria-hidden="true"
             />
@@ -202,7 +264,7 @@ export default function TrackingPage() {
         </div>
 
         {/* ── Call waiter ── */}
-        {(order.status === 'ready' || order.status === 'preparing') && (
+        {orderAccess && (order.status === 'ready' || order.status === 'preparing') && (
           <button
             onClick={callWaiter}
             disabled={callingWaiter || waiterCalled}
@@ -223,6 +285,8 @@ export default function TrackingPage() {
             )}
           </button>
         )}
+        {waiterCalled && <p role="status" className="text-center text-sm" style={{ color: 'var(--green-ok)' }}>{t('waiterOnWay', lang)}</p>}
+        {waiterError && <p role="alert" className="text-center text-sm" style={{ color: 'var(--red-err)' }}>{t('waiterCallFailed', lang)}</p>}
 
         {/* ── Completed ── */}
         {order.status === 'completed' && (
@@ -238,8 +302,8 @@ export default function TrackingPage() {
 
         {/* ── Live indicator ── */}
         <div className="flex items-center justify-center gap-2 py-2">
-          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: 'var(--green-ok)' }} aria-hidden="true" />
-          <p className="text-xs" style={{ color: 'var(--text-dim)' }}>{t('liveUpdates', lang)}</p>
+          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: realtimeConnected && !syncError ? 'var(--green-ok)' : 'var(--amber-warn)' }} aria-hidden="true" />
+          <p className="text-xs" style={{ color: 'var(--text-dim)' }}>{t(realtimeConnected && !syncError ? 'liveUpdates' : 'checkingUpdates', lang)}</p>
         </div>
       </div>
     </div>

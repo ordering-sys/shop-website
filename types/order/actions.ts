@@ -20,9 +20,23 @@ function escapeTelegramHtml(value: string): string {
   })
 }
 
+type RequestedItem = Pick<CartItem, 'id' | 'quantity'> & Pick<Partial<CartItem>, 'notes' | 'sugar_level'>
+
+function sameSelection(savedItems: unknown, requested: RequestedItem[]) {
+  if (!Array.isArray(savedItems)) return false
+  const selected = (items: RequestedItem[]) => JSON.stringify(items.map(item => ({
+    id: item?.id,
+    quantity: item?.quantity,
+    notes: item?.notes?.trim() ?? '',
+    sugar_level: item?.sugar_level ?? null,
+  })))
+  return selected(savedItems as RequestedItem[]) === selected(requested)
+}
+
 export async function submitOrder(data: {
   tableId: string
   token: string
+  requestId: string
   location: LocationFix
   items: CartItem[]
   total?: number
@@ -30,6 +44,8 @@ export async function submitOrder(data: {
   try {
     if (!data || typeof data.tableId !== 'string' || typeof data.token !== 'string' ||
         !data.tableId.trim() || !data.token.trim() || data.tableId.length > 64 || data.token.length > 256 ||
+        typeof data.requestId !== 'string' ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.requestId) ||
         !Array.isArray(data.items) || data.items.length === 0 || data.items.length > 30) {
       return { success: false, error: 'Invalid order' }
     }
@@ -54,6 +70,19 @@ export async function submitOrder(data: {
       return { success: false, error: error instanceof Error ? error.message : 'Table access denied' }
     }
     const supabase = createAdminClient()
+    // The existing orders.id primary key is the durable idempotency key.
+    const findExisting = async () => {
+      const { data: saved, error } = await supabase.from('orders')
+        .select('id, table_id, items').eq('id', data.requestId).maybeSingle()
+      if (error) throw error
+      return saved
+    }
+    const existing = await findExisting()
+    if (existing) {
+      return existing.table_id === table.number && sameSelection(existing.items, requested)
+        ? { success: true, orderId: existing.id }
+        : { success: false, error: 'Order request conflicts with an existing order' }
+    }
     const ids = [...new Set(requested.map(item => item.id))]
     let { data: menu, error: menuError } = await supabase.from('menu_items')
       .select('id, name_km, name_en, description, price, category, image_url, available, sugar_levels, default_sugar_level')
@@ -93,6 +122,7 @@ export async function submitOrder(data: {
     const { data: order, error } = await supabase
       .from('orders')
       .insert({
+        id: data.requestId,
         table_id: table.number,
         items:    pricedItems,
         total,
@@ -101,7 +131,17 @@ export async function submitOrder(data: {
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      if (error.code === '23505') {
+        const saved = await findExisting()
+        if (saved) {
+          return saved.table_id === table.number && sameSelection(saved.items, requested)
+            ? { success: true, orderId: saved.id }
+            : { success: false, error: 'Order request conflicts with an existing order' }
+        }
+      }
+      throw error
+    }
 
     // Send Telegram notification (optional)
     const itemList = pricedItems

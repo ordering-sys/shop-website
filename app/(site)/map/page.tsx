@@ -6,19 +6,15 @@ import { useSearchParams } from 'next/navigation'
 import {
   MapPin,
   UtensilsCrossed,
-  Compass,
   Layers,
   Sparkles,
   ExternalLink,
   Phone,
   Clock,
-  CheckCircle,
-  Eye,
   ShoppingBag,
   Coffee,
 } from 'lucide-react'
 import { useTheme } from '@/lib/theme-context'
-import { t } from '@/lib/i18n'
 import { tableQs } from '@/lib/table-qs'
 
 interface TableData {
@@ -29,18 +25,17 @@ interface TableData {
   seats: number
   section_en: string
   section_km: string
-  status: 'available' | 'occupied' | 'reserved'
   shape: 'circle' | 'rect' | 'booth'
   x: number // percentage
   y: number // percentage
 }
 
 const CAFE_TABLES: TableData[] = [
-  { id: 't1', number: 'T1', name_en: 'Window Table 1', name_km: 'តុបង្អួច ១', seats: 2, section_en: 'Sunlit Window', section_km: 'ក្បែរបង្អួច', status: 'available', shape: 'rect', x: 22, y: 28 },
-  { id: 't2', number: 'T2', name_en: 'Center Lounge 2', name_km: 'តុបន្ទប់កណ្ដាល ២', seats: 4, section_en: 'Main Dining', section_km: 'សាលធំ', status: 'available', shape: 'rect', x: 50, y: 32 },
-  { id: 't3', number: 'T3', name_en: 'Garden View 3', name_km: 'តុសួនច្បារ ៣', seats: 4, section_en: 'Main Dining', section_km: 'សាលធំ', status: 'available', shape: 'rect', x: 78, y: 28 },
-  { id: 't4', number: 'T4', name_en: 'Cozy Corner 4', name_km: 'តុកាច់ជ្រុង ៤', seats: 2, section_en: 'Quiet Nook', section_km: 'ជ្រុងស្ងាត់', status: 'available', shape: 'circle', x: 25, y: 65 },
-  { id: 'vip', number: 'VIP', name_en: 'Executive Lounge', name_km: 'បន្ទប់ពិសេស VIP', seats: 6, section_en: 'Private Suite', section_km: 'បន្ទប់ VIP', status: 'available', shape: 'booth', x: 75, y: 65 },
+  { id: 't1', number: 'T1', name_en: 'Window Table 1', name_km: 'តុបង្អួច ១', seats: 2, section_en: 'Sunlit Window', section_km: 'ក្បែរបង្អួច', shape: 'rect', x: 22, y: 28 },
+  { id: 't2', number: 'T2', name_en: 'Center Lounge 2', name_km: 'តុបន្ទប់កណ្ដាល ២', seats: 4, section_en: 'Main Dining', section_km: 'សាលធំ', shape: 'rect', x: 50, y: 32 },
+  { id: 't3', number: 'T3', name_en: 'Garden View 3', name_km: 'តុសួនច្បារ ៣', seats: 4, section_en: 'Main Dining', section_km: 'សាលធំ', shape: 'rect', x: 78, y: 28 },
+  { id: 't4', number: 'T4', name_en: 'Cozy Corner 4', name_km: 'តុកាច់ជ្រុង ៤', seats: 2, section_en: 'Quiet Nook', section_km: 'ជ្រុងស្ងាត់', shape: 'circle', x: 25, y: 65 },
+  { id: 'vip', number: 'VIP', name_en: 'Executive Lounge', name_km: 'បន្ទប់ពិសេស VIP', seats: 6, section_en: 'Private Suite', section_km: 'បន្ទប់ VIP', shape: 'booth', x: 75, y: 65 },
 ]
 
 function MapContent() {
@@ -48,109 +43,15 @@ function MapContent() {
   const searchParams = useSearchParams()
   const currentTable = searchParams.get('table')
   const currentToken = searchParams.get('token')
-  const qs = tableQs(currentTable, currentToken)
-
+  const orderQs = tableQs(currentTable, currentToken)
   const tabParam = searchParams.get('tab')
   const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d')
   const [selectedTable, setSelectedTable] = useState<TableData | null>(
     CAFE_TABLES.find((t) => t.number.toLowerCase() === currentTable?.toLowerCase()) || CAFE_TABLES[0]
   )
-  const [activeTab, setActiveTab] = useState<'floor' | 'sitemap' | 'location'>(
-    tabParam === 'location' ? 'location' : tabParam === 'sitemap' ? 'sitemap' : 'floor'
+  const [activeTab, setActiveTab] = useState<'floor' | 'location'>(
+    tabParam === 'location' ? 'location' : 'floor'
   )
-
-  const siteMapItems = [
-    {
-      title_en: 'Home & Welcome',
-      title_km: 'ទំព័រដើម និងការស្វាគមន៍',
-      desc_en: 'Atmospheric hero experience, cafe story, and quick ordering launch.',
-      desc_km: 'បទពិសោធន៍ទំព័រដើម រឿងរ៉ាវហាងកាហ្វេ និងការចាប់ផ្តើមកុម្ម៉ង់រហ័ស។',
-      icon: Coffee,
-      href: `/${qs}`,
-      badge_en: 'Landing',
-      badge_km: 'ទំព័រដើម',
-      color: 'var(--primary)',
-    },
-    {
-      title_en: 'Bilingual Food & Drinks Menu',
-      title_km: 'ម៉ឺនុយអាហារ និងភេសជ្ជៈ',
-      desc_en: 'Rich categorised menu, product customization modal with kitchen notes.',
-      desc_km: 'ម៉ឺនុយតាមប្រភេទ ផ្ទាំងកំណត់ចំណាំ និងព័ត៌មានលម្អិតមុខម្ហូប។',
-      icon: UtensilsCrossed,
-      href: `/order${qs}`,
-      badge_en: 'Customer Menu',
-      badge_km: 'ម៉ឺនុយកុម្ម៉ង់',
-      color: 'var(--fresh)',
-    },
-    {
-      title_en: 'Smart Cart & Checkout',
-      title_km: 'កន្ត្រកទំនិញ និងការដាក់កុម្ម៉ង់',
-      desc_en: 'Bottom sheet drawer, real-time item stepper, and instant Telegram alert.',
-      desc_km: 'កន្ត្រកទំនិញឆ្លាតវៃ ការគណនាតម្លៃ និងការជូនដំណឹងតេឡេក្រាម។',
-      icon: ShoppingBag,
-      href: `/order${qs}`,
-      badge_en: 'Cart',
-      badge_km: 'កន្ត្រក',
-      color: 'var(--primary)',
-    },
-    {
-      title_en: 'Live Order Tracker',
-      title_km: 'ការតាមដានស្ថានភាពផ្ទាល់',
-      desc_en: 'Real-time ticket status updates via WebSocket with Waiter Call alert.',
-      desc_km: 'ការតាមដានការកុម្ម៉ង់ផ្ទាល់តាម WebSocket និងប៊ូតុងហៅបុគ្គលិក។',
-      icon: CheckCircle,
-      href: currentTable ? `/tracking/sample` : `/order${qs}`,
-      badge_en: 'Realtime',
-      badge_km: 'ពេលវេលាពិត',
-      color: 'var(--blue-info)',
-    },
-    {
-      title_en: '3D Interactive Cafe Map',
-      title_km: 'ប្លង់ 3D និងផែនទីហាង',
-      desc_en: 'Interactive isometric floor plan, table status locator, and site directory.',
-      desc_km: 'ប្លង់តុ 3D អន្តរកម្ម ស្វែងរកទីតាំងតុ និងមគ្គុទ្ទេសក៍គេហទំព័រ។',
-      icon: Compass,
-      tab: 'floor' as const,
-      href: `/map${qs}`,
-      badge_en: 'Current Page',
-      badge_km: 'ទំព័របច្ចុប្បន្ន',
-      color: 'var(--primary)',
-    },
-    {
-      title_en: 'Artisan Coffee & Roastery',
-      title_km: 'កាហ្វេប្រណីត និងការលីងកាហ្វេ',
-      desc_en: 'Signature Cambodian espresso, cold brew, and ethically sourced beans.',
-      desc_km: 'កាហ្វេពិសេសប្រចាំហាង កាហ្វេត្រជាក់ និងគ្រាប់កាហ្វេគុណភាពខ្ពស់។',
-      icon: Coffee,
-      href: `/${qs}#popular`,
-      badge_en: 'Craft Coffee',
-      badge_km: 'កាហ្វេពិសេស',
-      color: 'var(--primary)',
-    },
-    {
-      title_en: 'Our Story & Atmosphere',
-      title_km: 'រឿងរ៉ាវ និងបរិយាកាសហាង',
-      desc_en: 'Cozy indoor lounge, green garden patio, high-speed Wi-Fi, and warm hospitality.',
-      desc_km: 'កន្លែងអង្គុយសម្រាកដ៏កក់ក្តៅ សួនធម្មជាតិ Wi-Fi ល្បឿនលឿន និងសេវាកម្មរួសរាយ។',
-      icon: Sparkles,
-      href: `/about${qs}`,
-      badge_en: 'About Us',
-      badge_km: 'អំពីយើង',
-      color: 'var(--fresh)',
-    },
-    {
-      title_en: 'Physical Location & Hours',
-      title_km: 'ទីតាំងហាង និងផែនទីភ្នំពេញ',
-      desc_en: 'Street 240 BKK1 Phnom Penh, opening hours, live Google Map directions.',
-      desc_km: 'ផ្លូវ ២៤០ បឹងកេងកង ១ ភ្នំពេញ ម៉ោងបើក និងផែនទី Google Maps ផ្ទាល់។',
-      icon: MapPin,
-      tab: 'location' as const,
-      href: `/map${qs}&tab=location`,
-      badge_en: 'Phnom Penh Map',
-      badge_km: 'ផែនទីភ្នំពេញ',
-      color: 'var(--green-ok)',
-    },
-  ]
 
   return (
     <div className="min-h-screen pb-24">
@@ -170,12 +71,12 @@ function MapContent() {
           </div>
 
           <h1 className="serif font-bold text-3xl sm:text-4xl lg:text-5xl tracking-tight mb-3" style={{ color: '#edf0f4' }}>
-            {lang === 'km' ? 'ផែនទីហាងកាហ្វេ និងគេហទំព័រ' : 'Cafe Floor Plan & Site Map'}
+            {lang === 'km' ? 'ប្លង់ និងទីតាំងហាងកាហ្វេ' : 'Cafe Floor Plan & Location'}
           </h1>
           <p className="text-sm sm:text-base max-w-xl mx-auto leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
             {lang === 'km'
-              ? 'រុករកប្លង់តុ 3D អន្តរកម្ម ទីតាំងអង្គុយជាក់ស្តែង និងមគ្គុទ្ទេសក៍ពេញលេញនៃគេហទំព័រ។'
-              : 'Explore our isometric 3D cafe floor plan, find your seated table, and browse the interactive site directory.'}
+              ? 'រុករកប្លង់តុ 3D អន្តរកម្ម និងស្វែងរកទីតាំងហាងកាហ្វេ។'
+              : 'Explore our interactive 3D floor plan and find the cafe location.'}
           </p>
 
           {/* Seated Table Beacon Notification */}
@@ -215,18 +116,6 @@ function MapContent() {
           </button>
 
           <button
-            onClick={() => setActiveTab('sitemap')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-              activeTab === 'sitemap'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-md'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <Compass className="w-4 h-4" />
-            <span>{lang === 'km' ? 'មគ្គុទ្ទេសក៍គេហទំព័រ' : 'Site Directory'}</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('location')}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all ${
               activeTab === 'location'
@@ -251,7 +140,7 @@ function MapContent() {
               <div className="flex items-center gap-4 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full" style={{ background: 'var(--fresh)' }} />
-                  <span>{lang === 'km' ? 'តុទំនេរ' : 'Available'}</span>
+                  <span>{lang === 'km' ? 'ទីតាំងតុ' : 'Table location'}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full" style={{ background: 'var(--primary)' }} />
@@ -452,8 +341,8 @@ function MapContent() {
                     <span className="text-xl font-bold serif text-amber-500">
                       {lang === 'km' ? selectedTable.name_km : selectedTable.name_en}
                     </span>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30">
-                      {lang === 'km' ? 'ទំនេរ' : 'Available'}
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold border" style={{ color: 'var(--text-secondary)', borderColor: 'var(--bg-border)' }}>
+                      {lang === 'km' ? 'មិនបង្ហាញស្ថានភាពតុ' : 'Status unavailable'}
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
@@ -464,13 +353,19 @@ function MapContent() {
                 </div>
 
                 <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <Link
-                    href={`/order?table=${selectedTable.number}&token=abc123xyz`}
-                    className="btn-primary flex-1 sm:flex-initial flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-bold text-sm shadow-md"
-                  >
-                    <UtensilsCrossed className="w-4 h-4" />
-                    <span>{lang === 'km' ? `កុម្ម៉ង់នៅតុ ${selectedTable.number}` : `Order from Table ${selectedTable.number}`}</span>
-                  </Link>
+                  {orderQs && selectedTable.number.toLowerCase() === currentTable?.toLowerCase() ? (
+                    <Link
+                      href={`/order${orderQs}`}
+                      className="btn-primary flex-1 sm:flex-initial flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-bold text-sm shadow-md"
+                    >
+                      <UtensilsCrossed className="w-4 h-4" />
+                      <span>{lang === 'km' ? `កុម្ម៉ង់នៅតុ ${selectedTable.number}` : `Order from Table ${selectedTable.number}`}</span>
+                    </Link>
+                  ) : (
+                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      {lang === 'km' ? 'សូមស្កេន QR នៅតុនេះ ដើម្បីកុម្ម៉ង់។' : 'Scan the QR code at this table to order.'}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -478,93 +373,7 @@ function MapContent() {
         )}
 
         {/* ══════════════════════════════════════════════════════
-            TAB 2: VISUAL 3D SITE DIRECTORY
-            ══════════════════════════════════════════════════════ */}
-        {activeTab === 'sitemap' && (
-          <div className="space-y-6 animate-fade">
-            <div className="text-center max-w-xl mx-auto mb-6">
-              <h2 className="serif text-2xl sm:text-3xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-                {lang === 'km' ? 'មគ្គុទ្ទេសក៍គេហទំព័រពេញលេញ' : 'Complete Architecture Directory'}
-              </h2>
-              <p className="text-xs sm:text-sm" style={{ color: 'var(--text-secondary)' }}>
-                {lang === 'km'
-                  ? 'រុករកទំព័រ និងសេវាកម្មសំខាន់ៗទាំងអស់សម្រាប់អតិថិជនកុម្ម៉ង់ក្នុងហាងកាហ្វេរបស់យើង។'
-                  : 'Fast navigation across all customer ordering pages, menus, and cafe experiences.'}
-              </p>
-            </div>
-
-            {/* 3D Directory Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-              {siteMapItems.map((item, idx) => {
-                const Icon = item.icon
-                return (
-                  <Link
-                    key={idx}
-                    href={item.href}
-                    onClick={(e) => {
-                      if ('tab' in item && item.tab) {
-                        e.preventDefault()
-                        setActiveTab(item.tab)
-                        window.scrollTo({ top: 180, behavior: 'smooth' })
-                      }
-                    }}
-                    className="card card-hover group p-5 flex flex-col justify-between rounded-2xl border transition-all duration-300 relative overflow-hidden"
-                    style={{
-                      background: 'var(--bg-surface)',
-                      borderColor: 'var(--bg-border)',
-                      textDecoration: 'none',
-                    }}
-                  >
-                    {/* Top row */}
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-4">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 shadow-xs"
-                          style={{
-                            background: `${item.color}18`,
-                            color: item.color,
-                            border: `1px solid ${item.color}35`,
-                          }}
-                        >
-                          <Icon className="w-5 h-5" />
-                        </div>
-
-                        <span
-                          className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full"
-                          style={{
-                            background: 'var(--bg-elevated)',
-                            color: 'var(--text-dim)',
-                            border: '1px solid var(--bg-border)',
-                          }}
-                        >
-                          {lang === 'km' ? item.badge_km : item.badge_en}
-                        </span>
-                      </div>
-
-                      <h3 className="font-bold text-base leading-snug mb-1.5 transition-colors group-hover:text-amber-500" style={{ color: 'var(--text-primary)' }}>
-                        {lang === 'km' ? item.title_km : item.title_en}
-                      </h3>
-                      <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                        {lang === 'km' ? item.desc_km : item.desc_en}
-                      </p>
-                    </div>
-
-                    {/* Bottom CTA */}
-                    <div className="flex items-center gap-1.5 text-xs font-bold mt-4 pt-3 border-t"
-                      style={{ color: item.color, borderColor: 'var(--bg-border)' }}
-                    >
-                      <span>{lang === 'km' ? 'ចូលមើល' : 'Explore'}</span>
-                      <ExternalLink className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════
-            TAB 3: PHNOM PENH LOCATION & HOURS
+            TAB 2: PHNOM PENH LOCATION & HOURS
             ══════════════════════════════════════════════════════ */}
         {activeTab === 'location' && (
           <div className="space-y-6 animate-fade">
@@ -716,7 +525,7 @@ function MapContent() {
                       className="w-full h-full border-0"
                       loading="lazy"
                       allowFullScreen
-                      referrerPolicy="no-referrer-when-downgrade"
+                      referrerPolicy="no-referrer"
                     />
 
                     {/* Floating live indicator badge */}

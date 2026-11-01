@@ -70,7 +70,7 @@ test('rejects outside locations and inaccurate fixes without expanding the radiu
 
 test('guest Wi-Fi details are returned only after table access succeeds', async () => {
   let checked = 0
-  const authorized = load('app/table-access-actions.ts', {
+  const authorized = load('types/table-access-actions.ts', {
     '@/lib/table-access': { checkTableAccess: async () => { checked++ } },
     '@/lib/server-secret': { serverSecret: name => name === 'GUEST_WIFI_SSID' ? 'Cafe Guest' : 'guest-password' },
   })
@@ -80,7 +80,7 @@ test('guest Wi-Fi details are returned only after table access succeeds', async 
   assert.equal(checked, 1)
 
   let secretReads = 0
-  const denied = load('app/table-access-actions.ts', {
+  const denied = load('types/table-access-actions.ts', {
     '@/lib/table-access': { checkTableAccess: async () => { throw new Error('Invalid QR') } },
     '@/lib/server-secret': { serverSecret: () => { secretReads++; return 'hidden' } },
   })

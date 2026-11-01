@@ -1,6 +1,8 @@
 'use client'
 
 import { MenuImage } from '@/components/site/MenuImage'
+import { ProductDetailModal } from '@/components/site/ProductDetailModal'
+import { useTableCart } from '@/components/site/TableCartProvider'
 
 import Link from 'next/link'
 import { Suspense, useEffect, useState, type ReactNode } from 'react'
@@ -10,14 +12,16 @@ import { t } from '@/lib/i18n'
 import { tableQs } from '@/lib/table-qs'
 import { getLocation } from '@/lib/location'
 import { getGuestWifi } from '@/types/table-access-actions'
+import { isSugarSchemaUnavailable } from '@/lib/sugar'
 import { createClient } from '@/lib/supabase/client'
 import type { MenuItem } from '@/lib/types'
-import { ArrowRight, Coffee, Compass, KeyRound, MapPin, Plus, Sparkles, Wifi } from 'lucide-react'
+import { ArrowRight, Coffee, KeyRound, MapPin, Plus, Sparkles, Wifi } from 'lucide-react'
 import { Hero3DShowcase } from '@/components/site/Hero3DShowcase'
 import { CoffeeBeanRain } from '@/components/site/CoffeeBeanRain'
 import { IconBean, IconStar } from '@/components/site/icons'
 
 function LandingContent() {
+  const { cart, addItem } = useTableCart()
   const { lang, theme } = useTheme()
   const isLight = theme === 'light'
   const searchParams = useSearchParams()
@@ -26,37 +30,44 @@ function LandingContent() {
   const qs = tableQs(table, token)
   const hasTableQr = Boolean(table?.trim() && token?.trim())
   const [featured, setFeatured] = useState<MenuItem[]>([])
+  const [detailItem, setDetailItem] = useState<MenuItem | null>(null)
   const [menuError, setMenuError] = useState(false)
   const [menuLoading, setMenuLoading] = useState(true)
   const [wifiState, setWifiState] = useState<{ key: string; success: boolean; ssid: string; password: string } | null>(null)
+  const [wifiBusy, setWifiBusy] = useState(false)
 
-  useEffect(() => {
-    if (!table?.trim() || !token?.trim()) return
+  async function loadWifi() {
+    if (!table?.trim() || !token?.trim() || wifiBusy) return
     const key = `${table}\u0000${token}`
-    let active = true
-    async function loadWifi() {
-      try {
-        const result = await getGuestWifi(table!, token!, await getLocation())
-        if (active) setWifiState({ key, ...result })
-      } catch {
-        if (active) setWifiState({ key, success: false, ssid: '', password: '' })
-      }
+    setWifiBusy(true)
+    try {
+      const result = await getGuestWifi(table, token, await getLocation())
+      setWifiState({ key, ...result })
+    } catch {
+      setWifiState({ key, success: false, ssid: '', password: '' })
+    } finally {
+      setWifiBusy(false)
     }
-    void loadWifi()
-    return () => { active = false }
-  }, [table, token])
+  }
 
   useEffect(() => {
     const supabase = createClient()
     let active = true
     async function loadFeatured() {
       try {
-        const { data, error } = await supabase
-      .from('menu_items')
-      .select('id, name_km, name_en, description, price, category, image_url, available, sugar_levels, default_sugar_level')
-      .eq('available', true)
-      .order('name_en')
-      .limit(4)
+        let { data, error } = await supabase
+          .from('menu_items')
+          .select('id, name_km, name_en, description, price, category, image_url, available, sugar_levels, default_sugar_level')
+          .eq('available', true)
+          .order('name_en')
+          .limit(4)
+        if (isSugarSchemaUnavailable(error)) {
+          const legacy = await supabase.from('menu_items')
+            .select('id, name_km, name_en, description, price, category, image_url, available')
+            .eq('available', true).order('name_en').limit(4)
+          data = legacy.data?.map(item => ({ ...item, sugar_levels: [], default_sugar_level: null })) ?? null
+          error = legacy.error
+        }
         if (error) throw error
         if (active) { setFeatured(data ?? []); setMenuError(false) }
       } catch (error) {
@@ -118,10 +129,10 @@ function LandingContent() {
         />
 
         <div className="hero-content w-full relative z-20">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-14 sm:py-20 lg:py-24">
-            <div className="grid lg:grid-cols-12 gap-10 lg:gap-8 items-center">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-3 pb-10 sm:py-20 lg:py-24">
+            <div className="grid lg:grid-cols-12 gap-5 sm:gap-8 lg:gap-8 items-center">
               {/* Left Column: Headline & Action CTA */}
-              <div className="lg:col-span-7 max-w-2xl">
+              <div className="order-2 lg:order-1 lg:col-span-7 max-w-2xl">
                 {table && token ? (
                   <div
                     className="anim-0 inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl mb-6 shadow-md border backdrop-blur-md"
@@ -198,19 +209,6 @@ function LandingContent() {
                     <ArrowRight className="w-4 h-4" />
                   </Link>
 
-                  <Link
-                    href={`/map${qs}`}
-                    className="btn-outline flex items-center gap-2 px-5 py-3.5 rounded-2xl font-bold text-sm sm:text-base border backdrop-blur-md transition-all hover:scale-105 active:scale-95"
-                    style={{
-                      borderColor: 'var(--bg-border)',
-                      background: isLight ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.06)',
-                      color: 'var(--text-primary)',
-                      boxShadow: isLight ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
-                    }}
-                  >
-                    <Compass className="w-4 h-4 text-amber-500" />
-                    <span>{lang === 'km' ? 'ប្លង់ 3D និងទីតាំង' : '3D Map & Location'}</span>
-                  </Link>
                 </div>
 
                 {/* Quick Quality Proof Tags */}
@@ -234,7 +232,7 @@ function LandingContent() {
               </div>
 
               {/* Right Column: Interactive 3D Showcase */}
-              <div className="lg:col-span-5 flex justify-center lg:justify-end relative z-20">
+              <div className="order-1 lg:order-2 lg:col-span-5 flex justify-center lg:justify-end relative z-20">
                 <Hero3DShowcase />
               </div>
             </div>
@@ -295,7 +293,9 @@ function LandingContent() {
                       <p><span className="font-semibold">{t('wifiName', lang)}:</span> <span className="break-all select-text">{wifi.ssid}</span></p>
                       <p className="flex items-center justify-center gap-1 flex-wrap"><KeyRound className="w-3.5 h-3.5" aria-hidden="true" /><span className="font-semibold">{t('wifiPassword', lang)}:</span> <span className="break-all select-text">{wifi.password}</span></p>
                     </div>
-                  ) : <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--text-dim)' }}>{wifi ? t('wifiUnavailable', lang) : t('wifiLoading', lang)}</p>}
+                  ) : <button type="button" onClick={() => void loadWifi()} disabled={wifiBusy} className="mt-2 min-h-11 rounded-lg border px-3 py-2 text-xs font-semibold cursor-pointer" style={{ borderColor: 'var(--bg-border)', color: 'var(--primary)' }}>
+                    {wifiBusy ? t('wifiLoading', lang) : wifi ? t('wifiUnavailable', lang) : (lang === 'km' ? 'មើលព័ត៌មាន Wi-Fi' : 'View Wi-Fi details')}
+                  </button>}
                 </div>
               </div>
             )}
@@ -341,52 +341,60 @@ function LandingContent() {
             {displayItems.map((item, i) => (
               <div
                 key={item.id}
-                className={`card card-hover anim-${i} relative z-20`}
-                style={{
-                  overflow: 'hidden',
-                  background: 'var(--bg-card)',
+                className={`hover-3d anim-${i} relative z-20 w-full h-full cursor-pointer`}
+                role="button"
+                tabIndex={0}
+                aria-label={`${t('tapForDetail', lang)} ${lang === 'km' ? item.name_km : item.name_en}`}
+                onClick={() => setDetailItem(item)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    setDetailItem(item)
+                  }
                 }}
               >
-                <div className="w-full h-44 flex items-center justify-center relative overflow-hidden dish-ph">
-                  <MenuImage src={item.image_url} alt={item.name_en} className="w-full h-full object-cover" loading="lazy">
-                    <div className="flex flex-col items-center gap-2" style={{ color: 'var(--primary)', opacity: 0.55 }}>
-                      <Coffee className="w-6 h-6" aria-hidden="true" />
-                      <span className="text-[10px] tracking-widest uppercase">{item.category}</span>
-                    </div>
-                  </MenuImage>
-                  <span
-                    className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                    style={{ background: 'rgba(0,0,0,0.55)', color: 'var(--primary-light)', backdropFilter: 'blur(6px)' }}
-                  >
-                    {item.category}
-                  </span>
-                </div>
-                <div className="p-4">
-                  <h3 className="font-semibold text-sm leading-snug" style={{ color: 'var(--text-primary)' }}>
-                    {lang === 'km' ? item.name_km : item.name_en}
-                  </h3>
-                  <p className="text-xs mt-0.5 mb-3" style={{ color: 'var(--text-dim)' }}>
-                    {lang === 'km' ? item.name_en : item.name_km}
-                  </p>
-                  {!!item.sugar_levels?.length && (
-                    <p className="mb-3 text-[10px] font-medium leading-relaxed" style={{ color: 'var(--primary)' }}>
-                      {t('sugarOptionsBadge', lang)} · {item.sugar_levels.map(level => level === 0 ? t('sugarNoSugar', lang) : `${level}%`).join(', ')}
-                    </p>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-base" style={{ color: 'var(--primary)' }}>
-                      ${Number(item.price).toFixed(2)}
-                    </span>
-                    <Link
-                      href={orderHref}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg active:scale-90"
-                      style={{ background: 'var(--primary)', color: 'var(--text-invert)', boxShadow: 'var(--shadow-primary)', minHeight: 'unset' }}
-                      aria-label={`Order ${item.name_en}`}
+                <article className="card h-full overflow-hidden" style={{ background: 'var(--bg-card)', zIndex: 0 }}>
+                  <figure className="w-full h-44 flex items-center justify-center relative overflow-hidden dish-ph">
+                    <MenuImage src={item.image_url} alt={item.name_en} className="w-full h-full object-cover" loading="lazy">
+                      <div className="flex flex-col items-center gap-2" style={{ color: 'var(--primary)', opacity: 0.55 }}>
+                        <Coffee className="w-6 h-6" aria-hidden="true" />
+                        <span className="text-[10px] tracking-widest uppercase">{item.category}</span>
+                      </div>
+                    </MenuImage>
+                    <span
+                      className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ background: 'rgba(0,0,0,0.55)', color: 'var(--primary-light)', backdropFilter: 'blur(6px)' }}
                     >
-                      <Plus className="w-4 h-4" aria-hidden="true" />
-                    </Link>
+                      {item.category}
+                    </span>
+                    {cart.some(line => line.id === item.id) && (
+                      <span className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full text-xs font-bold" style={{ background: 'var(--primary)', color: 'var(--text-invert)' }} aria-label={`${cart.filter(line => line.id === item.id).reduce((sum, line) => sum + line.quantity, 0)} in cart`}>
+                        {cart.filter(line => line.id === item.id).reduce((sum, line) => sum + line.quantity, 0)}
+                      </span>
+                    )}
+                  </figure>
+                  <div className="p-4">
+                    <h3 className="font-semibold text-sm leading-snug" style={{ color: 'var(--text-primary)' }}>
+                      {lang === 'km' ? item.name_km : item.name_en}
+                    </h3>
+                    <p className="text-xs mt-0.5 mb-3" style={{ color: 'var(--text-dim)' }}>
+                      {lang === 'km' ? item.name_en : item.name_km}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-base" style={{ color: 'var(--primary)' }}>
+                        ${Number(item.price).toFixed(2)}
+                      </span>
+                      <span
+                        className="w-8 h-8 flex items-center justify-center rounded-lg"
+                        style={{ background: 'var(--primary)', color: 'var(--text-invert)', boxShadow: 'var(--shadow-primary)' }}
+                        aria-hidden="true"
+                      >
+                        <Plus className="w-4 h-4" aria-hidden="true" />
+                      </span>
+                    </div>
                   </div>
-                </div>
+                </article>
+                {Array.from({ length: 8 }, (_, zone) => <div key={zone} aria-hidden="true" />)}
               </div>
             ))}
           </div>
@@ -447,7 +455,7 @@ function LandingContent() {
       </section>
 
       {/* ── Section 5: Join Our Coffee Club (Image 3: beans seen falling through down to footer) ── */}
-      <section className="section relative z-10" style={{ background: 'transparent' }}>
+      {/* <section className="section relative z-10" style={{ background: 'transparent' }}>
         <div className="mx-auto max-w-6xl px-6 relative z-10">
           <div className="join-card relative z-20 text-center">
             <h2 className="heading-section mb-3">{t('joinTitle', lang)}</h2>
@@ -466,7 +474,23 @@ function LandingContent() {
             </form>
           </div>
         </div>
-      </section>
+      </section> */}
+      {detailItem && (
+        <ProductDetailModal
+          key={detailItem.id}
+          item={detailItem}
+          lang={lang}
+          cartQty={cart.filter(line => line.id === detailItem.id).reduce((sum, line) => sum + line.quantity, 0)}
+          cart={cart}
+          canOrder={hasTableQr}
+          onClose={() => setDetailItem(null)}
+          onAdd={(item, qty, notes, sugarLevel) => {
+            if (!hasTableQr) return
+            addItem(item, qty, notes, sugarLevel)
+            setDetailItem(null)
+          }}
+        />
+      )}
     </div>
   )
 }

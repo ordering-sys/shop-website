@@ -1,9 +1,12 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { FileText, Minus, Plus, ShoppingCart, Trash2, X } from 'lucide-react'
-import { t } from '@/lib/i18n'
-import type { Lang } from '@/lib/i18n'
+import { cartItemKey } from '@/lib/sugar'
+import { MAX_CART_QUANTITY, MAX_LINE_QUANTITY } from '@/lib/cart-limits'
+import { t, type Lang } from '@/lib/i18n'
 import type { CartItem } from '@/lib/types'
+import { MenuImage } from './MenuImage'
 
 type CartSheetProps = {
   cart: CartItem[]
@@ -13,196 +16,95 @@ type CartSheetProps = {
   cartCount: number
   open: boolean
   submitting: boolean
+  error: string
   onOpen: () => void
   onClose: () => void
-  onUpdateQty: (id: string, delta: number) => void
-  onRemove: (id: string) => void
+  onUpdateQty: (key: string, delta: number) => void
+  onRemove: (key: string) => void
   onSubmit: () => void
 }
 
-export function CartSheet({
-  cart,
-  lang,
-  table,
-  cartTotal,
-  cartCount,
-  open,
-  submitting,
-  onOpen,
-  onClose,
-  onUpdateQty,
-  onRemove,
-  onSubmit,
-}: CartSheetProps) {
-  return (
-    <>
-      {cartCount > 0 && (
-        <button
-          onClick={onOpen}
-          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3.5 rounded-2xl transition-all duration-200"
-          style={{
-            background: 'var(--primary)',
-            boxShadow: '0 8px 32px rgba(200,145,58,0.5)',
-            minWidth: 268,
-            maxWidth: 'calc(100vw - 2rem)',
-            color: 'var(--text-invert)',
-          }}
-          aria-label={`${t('viewCart', lang)}: ${cartCount} ${t('items', lang)}, $${cartTotal.toFixed(2)}`}
-        >
-          <div className="relative flex-shrink-0">
-            <ShoppingCart className="w-5 h-5" />
-            <span
-              className="absolute -top-2 -right-2 text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center"
-              style={{ background: 'var(--bg-base)', color: 'var(--primary)' }}
-              aria-hidden="true"
-            >
-              {cartCount}
-            </span>
+export function CartSheet({ cart, lang, table, cartTotal, cartCount, open, submitting, error, onOpen, onClose, onUpdateQty, onRemove, onSubmit }: CartSheetProps) {
+  const closeButton = useRef<HTMLButtonElement>(null)
+  const submittingRef = useRef(submitting)
+
+  useEffect(() => { submittingRef.current = submitting }, [submitting])
+
+  useEffect(() => {
+    if (!open) return
+    const oldOverflow = document.body.style.overflow
+    const oldFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    document.body.style.overflow = 'hidden'
+    closeButton.current?.focus()
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !submittingRef.current) onClose()
+    }
+    window.addEventListener('keydown', onEscape)
+    return () => {
+      document.body.style.overflow = oldOverflow
+      window.removeEventListener('keydown', onEscape)
+      oldFocus?.focus()
+    }
+  }, [open, onClose])
+
+  return <>
+    {cartCount > 0 && !open && (
+      <button type="button" onClick={onOpen} className="cart-trigger fixed right-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:right-6 md:bottom-6 z-40 flex items-center justify-center rounded-full cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2" style={{ background: 'var(--primary)', boxShadow: 'var(--shadow-primary)', color: 'var(--text-invert)' }} aria-label={`${t('viewCart', lang)}: ${cartCount} ${t('items', lang)}, $${cartTotal.toFixed(2)}`}>
+        <span className="relative" aria-hidden="true">
+          <ShoppingCart className="size-6" />
+          <span className="absolute -top-3 -right-3 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold" style={{ background: 'var(--bg-base)', color: 'var(--primary)' }}>{cartCount}</span>
+        </span>
+      </button>
+    )}
+    {open && (
+      <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label={t('cartTitle', lang)} aria-busy={submitting}>
+        <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(1px)' }} onClick={submitting ? undefined : onClose} aria-hidden="true" />
+        <div className="cart-drawer absolute inset-y-0 right-0 flex w-full max-w-[440px] flex-col" style={{ background: 'var(--bg-surface)', borderLeft: '1px solid var(--bg-border)', boxShadow: 'var(--shadow-modal)' }}>
+          <div className="flex items-center justify-between border-b px-4 py-4 sm:px-6" style={{ borderColor: 'var(--bg-border)' }}>
+            <div>
+              <h2 className="serif text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{t('cartTitle', lang)}</h2>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{cartCount} {cartCount === 1 ? t('item', lang) : t('items', lang)}</p>
+            </div>
+            <button ref={closeButton} type="button" onClick={onClose} disabled={submitting} className="btn-icon cursor-pointer" aria-label={lang === 'km' ? 'បិទកន្ត្រក' : 'Close cart'}><X className="size-5" /></button>
           </div>
-          <span className="flex-1 text-left font-bold text-sm">{t('viewCart', lang)}</span>
-          <span className="font-bold text-sm">${cartTotal.toFixed(2)}</span>
-        </button>
-      )}
-
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col justify-end"
-          role="dialog"
-          aria-modal="true"
-          aria-label={t('cartTitle', lang)}
-        >
-          <div
-            className="absolute inset-0"
-            style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(7px)' }}
-            onClick={onClose}
-            aria-hidden="true"
-          />
-
-          <div
-            className="relative flex flex-col"
-            style={{
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--bg-border)',
-              borderBottom: 'none',
-              borderRadius: '1.5rem 1.5rem 0 0',
-              maxHeight: '88vh',
-              boxShadow: 'var(--shadow-modal)',
-            }}
-          >
-            <div className="flex justify-center pt-3 pb-1" aria-hidden="true">
-              <div className="w-10 h-1 rounded-full" style={{ background: 'var(--bg-border)' }} />
-            </div>
-
-            <div
-              className="flex items-center justify-between px-6 py-3"
-              style={{ borderBottom: '1px solid var(--bg-border)' }}
-            >
-              <div>
-                <h2 className="font-bold text-lg serif" style={{ color: 'var(--text-primary)' }}>
-                  {t('cartTitle', lang)}
-                </h2>
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  {cartCount} {cartCount === 1 ? t('item', lang) : t('items', lang)}
-                </p>
-              </div>
-              <button onClick={onClose} className="btn-icon" aria-label="Close cart">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto flex-1 px-6 py-4 space-y-3">
-              {cart.map(item => (
-                <div
-                  key={item.id}
-                  className="rounded-xl p-3"
-                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--bg-border)' }}
-                >
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+            {cart.length === 0 && <p className="py-12 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>{lang === 'km' ? 'កន្ត្រករបស់អ្នកទទេ។' : 'Your cart is empty.'}</p>}
+            <div className="flex flex-col gap-3">
+              {cart.map(item => {
+                const key = cartItemKey(item)
+                return <div key={key} className="rounded-xl border p-3" style={{ background: 'var(--bg-elevated)', borderColor: 'var(--bg-border)' }}>
                   <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>
-                        {lang === 'km' ? item.name_km : item.name_en}
-                      </p>
-                      <p className="text-xs truncate" style={{ color: 'var(--text-dim)' }}>
-                        {lang === 'km' ? item.name_en : item.name_km}
-                      </p>
-                      <p className="text-sm font-bold mt-0.5" style={{ color: 'var(--primary)' }}>
-                        ${(item.price * item.quantity).toFixed(2)}
-                      </p>
+                    <div className="size-14 shrink-0 overflow-hidden rounded-lg" style={{ background: 'var(--bg-surface)' }}>
+                      <MenuImage src={item.image_url} alt={lang === 'km' ? item.name_km : item.name_en} className="size-full object-cover"><div className="flex size-full items-center justify-center"><ShoppingCart className="size-5" aria-hidden="true" /></div></MenuImage>
                     </div>
-
-                    <div className="qty-stepper" role="group" aria-label={`Quantity of ${item.name_en}`}>
-                      <button onClick={() => onUpdateQty(item.id, -1)} aria-label={`Decrease ${item.name_en}`}>
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span aria-live="polite">{item.quantity}</span>
-                      <button onClick={() => onUpdateQty(item.id, 1)} aria-label={`Increase ${item.name_en}`}>
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{lang === 'km' ? item.name_km : item.name_en}</p>
+                      <p className="truncate text-xs" style={{ color: 'var(--text-secondary)' }}>{lang === 'km' ? item.name_en : item.name_km}</p>
+                      {item.sugar_level !== undefined && <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>{t('sugarLevel', lang)}: {item.sugar_level}%</p>}
+                      <p className="mt-1 text-sm font-bold" style={{ color: 'var(--primary)' }}>${(item.price * item.quantity).toFixed(2)}</p>
                     </div>
-
-                    <button
-                      onClick={() => onRemove(item.id)}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0"
-                      style={{
-                        background: 'rgba(224,82,82,0.1)',
-                        color: 'var(--red-err)',
-                        border: '1px solid rgba(224,82,82,0.2)',
-                        minHeight: 'unset',
-                      }}
-                      aria-label={`Remove ${item.name_en}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
                   </div>
-
-                  {item.notes && (
-                    <div
-                      className="flex items-start gap-1.5 mt-2 pt-2"
-                      style={{ borderTop: '1px solid var(--bg-border)' }}
-                    >
-                      <FileText className="w-3 h-3 flex-shrink-0 mt-0.5" style={{ color: 'var(--fresh)' }} aria-hidden="true" />
-                      <p className="text-xs italic leading-snug" style={{ color: 'var(--fresh)' }}>
-                        <span className="font-semibold not-italic mr-1">{t('notesInCart', lang)}:</span>
-                        {item.notes}
-                      </p>
+                  {item.notes && <p className="mt-2 flex items-start gap-1.5 border-t pt-2 text-xs" style={{ borderColor: 'var(--bg-border)', color: 'var(--text-secondary)' }}><FileText className="mt-0.5 size-3 shrink-0" aria-hidden="true" /><span>{item.notes}</span></p>}
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <div className="qty-stepper qty-stepper-lg" role="group" aria-label={`${item.name_en} quantity`}>
+                      <button type="button" onClick={() => onUpdateQty(key, -1)} disabled={submitting} aria-label={`Decrease ${item.name_en}`}><Minus className="size-4" /></button>
+                      <span aria-live="polite">{item.quantity}</span>
+                      <button type="button" onClick={() => onUpdateQty(key, 1)} disabled={submitting || item.quantity >= MAX_LINE_QUANTITY || cartCount >= MAX_CART_QUANTITY} aria-label={`Increase ${item.name_en}`}><Plus className="size-4" /></button>
                     </div>
-                  )}
+                    <button type="button" onClick={() => onRemove(key)} disabled={submitting} className="flex size-11 items-center justify-center rounded-lg border cursor-pointer" style={{ borderColor: 'var(--bg-border)', color: 'var(--red-err)' }} aria-label={`Remove ${item.name_en}`}><Trash2 className="size-4" /></button>
+                  </div>
                 </div>
-              ))}
+              })}
             </div>
-
-            <div className="px-6 py-5" style={{ borderTop: '1px solid var(--bg-border)' }}>
-              <div className="divider mb-4" />
-              <div className="flex items-center justify-between mb-5">
-                <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                  {t('total', lang)}
-                </span>
-                <span className="text-2xl font-bold serif" style={{ color: 'var(--primary)' }}>
-                  ${cartTotal.toFixed(2)}
-                </span>
-              </div>
-              <button
-                onClick={onSubmit}
-                disabled={submitting}
-                className="btn-primary w-full py-4 text-base justify-center"
-                aria-busy={submitting}
-              >
-                {submitting ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true" />
-                    {t('placingOrder', lang)}
-                  </>
-                ) : (
-                  t('placeOrder', lang)
-                )}
-              </button>
-              <p className="text-center text-xs mt-3" style={{ color: 'var(--text-dim)' }}>
-                {t('tableLabel', lang)} {table}
-              </p>
-            </div>
+          </div>
+          <div className="border-t px-4 py-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:px-6" style={{ borderColor: 'var(--bg-border)' }}>
+            <div className="mb-4 flex items-center justify-between"><span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{t('total', lang)}</span><span className="serif text-2xl font-bold" style={{ color: 'var(--primary)' }}>${cartTotal.toFixed(2)}</span></div>
+            {error && <p role="alert" className="mb-3 rounded-lg border px-3 py-2 text-sm" style={{ borderColor: 'var(--red-err)', color: 'var(--red-err)' }}>{error}</p>}
+            <button type="button" onClick={onSubmit} disabled={submitting || cartCount === 0} className="btn-primary w-full justify-center py-4 text-base cursor-pointer" aria-busy={submitting}>{submitting ? t('placingOrder', lang) : t('placeOrder', lang)}</button>
+            <p className="mt-3 text-center text-xs" style={{ color: 'var(--text-secondary)' }}>{t('tableLabel', lang)} {table}</p>
           </div>
         </div>
-      )}
-    </>
-  )
+      </div>
+    )}
+  </>
 }

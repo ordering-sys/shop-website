@@ -51,10 +51,10 @@ docker run --rm -p 3000:3000 --env-file .env.runtime \
   cafe-public
 ```
 
-The service role key is optional for current public-site routes; mount it only if server code that uses it is enabled. A deployment platform can provide Docker secrets or an equivalent secret mount at those paths. `TELEGRAM_BOT_TOKEN` and `SUPABASE_SERVICE_ROLE_KEY` environment variables remain supported outside Docker. Rebuild the image when a public value changes. The `.dockerignore` excludes `.env` files from the image build context.
+The service role key is required for checkout and waiter calls. A deployment platform can provide Docker secrets or an equivalent secret mount at those paths. `TELEGRAM_BOT_TOKEN` and `SUPABASE_SERVICE_ROLE_KEY` environment variables remain supported outside Docker. Rebuild the image when a public value changes. The `.dockerignore` excludes `.env` files from the image build context.
 
 ### Prerequisites
-- Node.js 20+
+- Node.js 22
 - Supabase account (free tier)
 - Optional: Telegram Bot (for notifications)
 

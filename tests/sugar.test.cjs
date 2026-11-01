@@ -67,10 +67,12 @@ test('rejects unavailable items, invalid quantities and oversized notes', () => 
   assert.throws(() => sugar.prepareOrderItems([], [coffee]))
 })
 
-function orderAction(legacySchema = false) {
+function orderAction(legacySchema = false, race = false) {
   const inserted = [], messages = []
+  const saved = new Map()
+  let lookups = 0
   const db = { from: table => table === 'menu_items'
-    ? { select: columns => ({ in: async () => {
+    ? { select: columns => ({ in: () => ({ eq: async () => {
       if (legacySchema && columns.includes('sugar_levels')) {
         return { data: null, error: { code: '42703', message: 'column menu_items.sugar_levels does not exist' } }
       }
@@ -78,38 +80,71 @@ function orderAction(legacySchema = false) {
         ? Object.fromEntries(Object.entries(coffee).filter(([key]) => !['sugar_levels', 'default_sugar_level'].includes(key)))
         : coffee
       return { data: [menuItem], error: null }
-    } }) }
-    : { insert: values => { inserted.push(values); return { select: () => ({ single: async () => ({ data: { id: 'order-123456' }, error: null }) }) } } } }
-  const { submitOrder } = load('app/(site)/order/actions.ts', {
+    } }) }) }
+    : {
+      select: () => ({ eq: (_column, id) => ({ maybeSingle: async () => ({ data: race && lookups++ === 0 ? null : saved.get(id) ?? null, error: null }) }) }),
+      insert: values => { inserted.push(values); return { select: () => ({ single: async () => {
+        if (saved.has(values.id)) return { data: null, error: { code: '23505' } }
+        const order = { ...values }
+        saved.set(values.id, order)
+        return { data: order, error: null }
+      } }) } },
+    } }
+  const { submitOrder } = load('types/order/actions.ts', {
     '@/lib/sugar': sugar,
     '@/lib/supabase/admin': { createAdminClient: () => db },
-    '@/lib/table-access': { checkTableAccess: async () => ({}) },
+    '@/lib/table-access': { checkTableAccess: async () => ({ number: 'T1' }) },
     '@/lib/telegram': { sendTelegram: async text => messages.push(text) },
   })
-  return { submitOrder, inserted, messages }
+  return { submitOrder, inserted, messages, saved }
 }
+
+const requestId = '11111111-1111-4111-8111-111111111111'
 
 test('orders continue to work before the sugar migration, without sugar options', async () => {
   const { submitOrder, inserted } = orderAction(true)
-  const result = await submitOrder({ tableId: 'T1', token: 'qr', location: {}, items: [{ ...coffee, quantity: 1 }], total: 2.5 })
+  const result = await submitOrder({ tableId: 'T1', token: 'qr', requestId, location: {}, items: [{ ...coffee, quantity: 1 }], total: 2.5 })
   assert.equal(result.success, true)
   assert.equal(inserted[0].items[0].sugar_level, undefined)
 })
 
 test('order submission persists sugar and includes it in the staff notification', async () => {
   const { submitOrder, inserted, messages } = orderAction()
-  const result = await submitOrder({ tableId: 'T1', token: 'qr', location: {}, items: [{ ...line, sugar_level: 0 }], total: 2.5 })
+  const result = await submitOrder({ tableId: 'T1', token: 'qr', requestId, location: {}, items: [{ ...line, sugar_level: 0 }], total: 2.5 })
   assert.equal(result.success, true)
   assert.equal(inserted[0].items[0].sugar_level, 0)
   assert.equal(inserted[0].total, 2.5)
-  assert.match(messages[0], /Sugar .*0%/)
+  assert.match(messages[0], /Sugar:\s*0%/)
 })
 
 test('invalid options or tampered totals never insert an order', async () => {
   const { submitOrder, inserted } = orderAction()
   for (const input of [{ items: [{ ...line, sugar_level: 40 }], total: 2.5 }, { items: [line], total: 0 }]) {
-    const result = await submitOrder({ tableId: 'T1', token: 'qr', location: {}, ...input })
+    const result = await submitOrder({ tableId: 'T1', token: 'qr', requestId, location: {}, ...input })
     assert.equal(result.success, false)
   }
   assert.equal(inserted.length, 0)
+})
+
+test('retry with the same request ID returns one order and sends one alert', async () => {
+  const { submitOrder, inserted, messages } = orderAction()
+  const input = { tableId: 'T1', token: 'qr', requestId, location: {}, items: [{ ...line, sugar_level: 0 }], total: 2.5 }
+  const first = await submitOrder(input)
+  const retry = await submitOrder(input)
+  assert.deepEqual(retry, first)
+  assert.equal(inserted.length, 1)
+  assert.equal(messages.length, 1)
+
+  const changed = await submitOrder({ ...input, items: [{ ...line, quantity: 2, sugar_level: 0 }] })
+  assert.equal(changed.success, false)
+  assert.equal(inserted.length, 1)
+})
+
+test('a concurrent insert conflict resolves to the already committed order', async () => {
+  const { submitOrder, inserted, messages, saved } = orderAction(false, true)
+  saved.set(requestId, { id: requestId, table_id: 'T1', items: [{ ...line, sugar_level: 0 }] })
+  const result = await submitOrder({ tableId: 'T1', token: 'qr', requestId, location: {}, items: [{ ...line, sugar_level: 0 }], total: 2.5 })
+  assert.deepEqual(result, { success: true, orderId: requestId })
+  assert.equal(inserted.length, 1)
+  assert.equal(messages.length, 0)
 })

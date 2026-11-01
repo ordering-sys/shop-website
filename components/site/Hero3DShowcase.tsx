@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import Image from 'next/image'
-import { Sparkles, Star, Coffee } from 'lucide-react'
+import { Star } from 'lucide-react'
 import { useTheme } from '@/lib/theme-context'
 
 export function Hero3DShowcase() {
@@ -222,64 +222,17 @@ export function Hero3DShowcase() {
           </div>
         </div>
 
-        {/* ── Badge 2: Bottom Left Live Fresh Roast Badge ── */}
-        <div
-          className="absolute bottom-2 left-0 sm:-left-2 px-3.5 py-2.5 rounded-2xl border shadow-xl backdrop-blur-xl flex items-center gap-2.5 transition-all duration-300 hover:scale-105 z-20"
-          style={{
-            background: isLight ? 'rgba(255, 255, 255, 0.92)' : 'rgba(12, 22, 18, 0.88)',
-            borderColor: isLight ? 'rgba(15, 168, 130, 0.35)' : 'rgba(48, 201, 160, 0.45)',
-            boxShadow: isLight
-              ? '0 12px 28px rgba(0,0,0,0.08), 0 2px 10px rgba(15,168,130,0.12)'
-              : '0 14px 30px rgba(0,0,0,0.65), 0 0 20px rgba(48,201,160,0.22)',
-            transform: `translateZ(65px) translateY(${isHovered ? '4px' : '0px'})`,
-          }}
-        >
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{
-              background: 'linear-gradient(135deg, #30c9a0, #0fa882)',
-              color: '#fff',
-              boxShadow: '0 4px 12px rgba(48,201,160,0.4)',
-            }}
-          >
-            <Coffee className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs font-bold" style={{ color: isLight ? '#078066' : '#56ddb8' }}>
-                {lang === 'km' ? 'ឆុងស្រស់ៗរាល់ថ្ងៃ' : 'Freshly Brewed'}
-              </span>
-            </div>
-            <p className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>
-              {lang === 'km' ? 'គ្រាប់កាហ្វេ Arabica ១០០%' : '100% Single Origin'}
-            </p>
-          </div>
-        </div>
 
-        {/* ── Badge 3: Floating Micro 3D Crema Pill ── */}
-        <div
-          className="hidden sm:flex absolute top-1/2 -right-4 -translate-y-1/2 px-2.5 py-1.5 rounded-full border shadow-lg backdrop-blur-md items-center gap-1.5 z-20 animate-bounce-slight"
-          style={{
-            background: isLight ? 'rgba(255, 255, 255, 0.88)' : 'rgba(25, 20, 15, 0.85)',
-            borderColor: isLight ? 'rgba(192, 120, 24, 0.3)' : 'rgba(240, 167, 66, 0.35)',
-            transform: 'translateZ(40px)',
-          }}
-        >
-          <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-spin-slow" />
-          <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
-            {lang === 'km' ? 'រសជាតិផ្អែមក្រអូប' : 'Silky Crema'}
-          </span>
-        </div>
+
       </div>
-      <div className="relative z-20 flex justify-center gap-2 mt-3" role="group" aria-label="Choose coffee image">
+      {/* <div className="relative z-20 flex justify-center gap-2 mt-3" role="group" aria-label="Choose coffee image">
         <button type="button" onClick={() => setDrink('hot')} aria-pressed={drink === 'hot'} className={`hero-drink-button ${drink === 'hot' ? 'is-active' : ''}`}>
           {lang === 'km' ? 'កាហ្វេក្តៅ' : 'Hot coffee'}
         </button>
         <button type="button" onClick={() => setDrink('iced')} aria-pressed={drink === 'iced'} className={`hero-drink-button ${drink === 'iced' ? 'is-active' : ''}`}>
           {lang === 'km' ? 'កាហ្វេទឹកកក' : 'Iced coffee'}
         </button>
-      </div>
+      </div> */}
     </div>
   )
 }

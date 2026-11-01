@@ -1,42 +1,55 @@
 'use client'
 
 import { MenuImage } from '@/components/site/MenuImage'
-
 import { useEffect, useRef, useState } from 'react'
-import { FileText, Minus, Plus, ShoppingCart, X } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, X, FileText } from 'lucide-react'
+import type { CartItem, MenuItem } from '@/lib/types'
+import { remainingQuantity } from '@/lib/cart-limits'
 import { t } from '@/lib/i18n'
-import type { Lang } from '@/lib/i18n'
-import type { MenuItem } from '@/lib/types'
 
-type ProductDetailModalProps = {
+interface DetailModalProps {
   item: MenuItem
-  lang: Lang
+  lang: 'en' | 'km'
   cartQty: number
+  cart: CartItem[]
+  canOrder: boolean
   onClose: () => void
-  onAdd: (item: MenuItem, qty: number, notes: string) => void
+  onAdd?: (item: MenuItem, qty: number, notes: string, sugarLevel?: number) => void
 }
 
-export function ProductDetailModal({ item, lang, cartQty, onClose, onAdd }: ProductDetailModalProps) {
-  const [qty, setQty] = useState(1)
-  const [notes, setNotes] = useState('')
-  const [added, setAdded] = useState(false)
-  const notesRef = useRef<HTMLTextAreaElement>(null)
+export function ProductDetailModal({ item, lang, cartQty, cart, canOrder, onClose, onAdd }: DetailModalProps) {
+  const [sugarLevel, setSugarLevel] = useState<number | undefined>(item.default_sugar_level ?? item.sugar_levels?.[0])
+  const [qty, setQty]       = useState(1)
+  const [notes, setNotes]   = useState('')
+  const [added, setAdded]   = useState(false)
+  const notesRef            = useRef<HTMLTextAreaElement>(null)
+  const closeButtonRef      = useRef<HTMLButtonElement>(null)
 
+  /* Trap scroll on body while open */
   useEffect(() => {
     const prev = document.body.style.overflow
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
+    closeButtonRef.current?.focus()
+    return () => {
+      document.body.style.overflow = prev
+      previousFocus?.focus()
+    }
   }, [])
 
   function handleAdd() {
-    onAdd(item, qty, notes)
+    if (!canOrder || !item.available || !onAdd || remaining === 0) return
+    onAdd(item, selectedQty, notes, sugarLevel)
     setAdded(true)
     setTimeout(() => setAdded(false), 1800)
   }
 
-  const subtotal = (item.price * qty).toFixed(2)
-  const primaryName = lang === 'km' ? item.name_km : item.name_en
-  const secondaryName = lang === 'km' ? item.name_en : item.name_km
+  const sugarLevels = item.sugar_levels ?? []
+  const remaining = remainingQuantity(cart, item, notes, sugarLevel)
+  const selectedQty = Math.min(qty, Math.max(1, remaining))
+  const subtotal = (item.price * selectedQty).toFixed(2)
+  const primaryName   = lang === 'km' ? item.name_km  : item.name_en
+  const secondaryName = lang === 'km' ? item.name_en  : item.name_km
 
   return (
     <div
@@ -46,37 +59,44 @@ export function ProductDetailModal({ item, lang, cartQty, onClose, onAdd }: Prod
       aria-label={primaryName}
       onKeyDown={e => e.key === 'Escape' && onClose()}
     >
+      {/* Backdrop */}
       <div
         className="absolute inset-0"
-        style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }}
+        style={{ background: 'rgba(0,0,0,0.42)', backdropFilter: 'blur(2px)' }}
         onClick={onClose}
         aria-hidden="true"
       />
 
+      {/* Panel */}
       <div className="modal-panel">
+        {/* ── Image ── */}
         <div
           className="relative w-full flex-shrink-0 overflow-hidden"
           style={{ height: 240, background: 'var(--bg-elevated)' }}
         >
-          <MenuImage src={item.image_url} alt={primaryName} className="w-full h-full object-cover">
+          <MenuImage src={item.image_url}
+              alt={primaryName}
+              className="w-full h-full object-cover">
             <div className="w-full h-full flex flex-col items-center justify-center gap-3 opacity-25">
               <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="1.2" strokeLinecap="round" aria-hidden="true">
-                <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
-                <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
-                <line x1="6" y1="1" x2="6" y2="4" />
-                <line x1="10" y1="1" x2="10" y2="4" />
-                <line x1="14" y1="1" x2="14" y2="4" />
+                <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
+                <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
+                <line x1="6" y1="1" x2="6" y2="4"/>
+                <line x1="10" y1="1" x2="10" y2="4"/>
+                <line x1="14" y1="1" x2="14" y2="4"/>
               </svg>
               <span className="text-xs" style={{ color: 'var(--text-dim)' }}>{item.category}</span>
             </div>
           </MenuImage>
 
+          {/* Gradient overlay at bottom of image */}
           <div
             className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none"
             style={{ background: 'linear-gradient(to top, var(--bg-modal), transparent)' }}
             aria-hidden="true"
           />
 
+          {/* Category tag */}
           <div className="absolute top-3 left-3 flex gap-2">
             <span className="tag-fresh">{item.category}</span>
             {cartQty > 0 && (
@@ -90,20 +110,28 @@ export function ProductDetailModal({ item, lang, cartQty, onClose, onAdd }: Prod
             )}
           </div>
 
+          {/* Close button */}
           <button
+            ref={closeButtonRef}
             onClick={onClose}
-            className="absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full"
-            style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', backdropFilter: 'blur(6px)', minHeight: 'unset' }}
+            className="absolute top-3 right-3 size-11 flex items-center justify-center rounded-full"
+            style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', backdropFilter: 'blur(6px)' }}
             aria-label={t('detailClose', lang)}
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
+        {/* ── Scrollable body ── */}
         <div className="overflow-y-auto flex-1 px-5 pt-4 pb-2">
+
+          {/* Name + price */}
           <div className="flex items-start justify-between gap-3 mb-1">
             <div className="flex-1 min-w-0">
-              <h2 className="font-bold text-xl leading-snug serif" style={{ color: 'var(--text-primary)' }}>
+              <h2
+                className="font-bold text-xl leading-snug serif"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 {primaryName}
               </h2>
               <p className="text-sm mt-0.5" style={{ color: 'var(--text-dim)' }}>
@@ -122,6 +150,7 @@ export function ProductDetailModal({ item, lang, cartQty, onClose, onAdd }: Prod
             </div>
           </div>
 
+          {/* Availability dot */}
           <div className="flex items-center gap-1.5 mb-4">
             <span
               className="w-2 h-2 rounded-full"
@@ -133,17 +162,49 @@ export function ProductDetailModal({ item, lang, cartQty, onClose, onAdd }: Prod
             </span>
           </div>
 
+          {/* Divider */}
           <div className="divider mb-4" />
 
+          {/* Description */}
           <div className="mb-5">
             <p className="text-xs font-bold tracking-widest uppercase mb-2" style={{ color: 'var(--text-dim)' }}>
               {t('detailDescription', lang)}
             </p>
             <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              {item.description ? item.description : t('detailNoDesc', lang)}
+              {item.description
+                ? item.description
+                : t('detailNoDesc', lang)}
             </p>
           </div>
 
+          {sugarLevels.length > 0 && (
+            <fieldset className="mb-5">
+              <legend className="text-xs font-bold tracking-widest uppercase mb-2.5" style={{ color: 'var(--text-dim)' }}>
+                {t('sugarLevel', lang)}
+              </legend>
+              <div className="flex flex-wrap gap-2">
+                {sugarLevels.map(level => (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => {
+                      setSugarLevel(level)
+                      setQty(current => Math.min(current, Math.max(1, remainingQuantity(cart, item, notes, level))))
+                    }}
+                    aria-pressed={sugarLevel === level}
+                    className="min-h-11 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors"
+                    style={sugarLevel === level
+                      ? { background: 'var(--primary)', borderColor: 'var(--primary)', color: 'var(--text-invert)' }
+                      : { background: 'var(--bg-elevated)', borderColor: 'var(--bg-border)', color: 'var(--text-secondary)' }}
+                  >
+                    {level === 0 ? `${t('noSugar', lang)} (0%)` : `${level}${t('sugarPercent', lang)}`}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
+          {/* ── Quantity selector ── */}
           <div className="mb-5">
             <p className="text-xs font-bold tracking-widest uppercase mb-2.5" style={{ color: 'var(--text-dim)' }}>
               {t('detailQty', lang)}
@@ -151,19 +212,24 @@ export function ProductDetailModal({ item, lang, cartQty, onClose, onAdd }: Prod
             <div className="flex items-center justify-between">
               <div className="qty-stepper qty-stepper-lg" role="group" aria-label={t('detailQty', lang)}>
                 <button
-                  onClick={() => setQty(q => Math.max(1, q - 1))}
-                  disabled={qty <= 1}
+                  onClick={() => setQty(Math.max(1, selectedQty - 1))}
+                  disabled={selectedQty <= 1}
                   aria-label="Decrease quantity"
-                  style={{ opacity: qty <= 1 ? 0.35 : 1 }}
+                  style={{ opacity: selectedQty <= 1 ? 0.35 : 1 }}
                 >
                   <Minus className="w-4 h-4" />
                 </button>
-                <span aria-live="polite" aria-atomic="true">{qty}</span>
-                <button onClick={() => setQty(q => q + 1)} aria-label="Increase quantity">
+                <span aria-live="polite" aria-atomic="true">{selectedQty}</span>
+                <button
+                  onClick={() => setQty(current => Math.min(current + 1, remaining))}
+                  disabled={selectedQty >= remaining}
+                  aria-label="Increase quantity"
+                >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
 
+              {/* Subtotal */}
               <div className="text-right">
                 <p className="text-xs" style={{ color: 'var(--text-dim)' }}>{t('detailSubtotal', lang)}</p>
                 <p className="text-2xl font-bold serif" style={{ color: 'var(--primary)' }}>
@@ -173,6 +239,7 @@ export function ProductDetailModal({ item, lang, cartQty, onClose, onAdd }: Prod
             </div>
           </div>
 
+          {/* ── Special request / notes ── */}
           <div className="mb-5">
             <div className="flex items-center gap-2 mb-2">
               <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--fresh)' }} aria-hidden="true" />
@@ -190,7 +257,11 @@ export function ProductDetailModal({ item, lang, cartQty, onClose, onAdd }: Prod
               maxLength={200}
               placeholder={t('notesPlaceholder', lang)}
               value={notes}
-              onChange={e => setNotes(e.target.value)}
+              onChange={e => {
+                const value = e.target.value
+                setNotes(value)
+                setQty(current => Math.min(current, Math.max(1, remainingQuantity(cart, item, value, sugarLevel))))
+              }}
               aria-label={t('notesLabel', lang)}
             />
             <p className="text-right text-[11px] mt-1" style={{ color: 'var(--text-dim)' }}>
@@ -199,14 +270,18 @@ export function ProductDetailModal({ item, lang, cartQty, onClose, onAdd }: Prod
           </div>
         </div>
 
-        <div className="px-5 py-4 flex-shrink-0" style={{ borderTop: '1px solid var(--bg-border)' }}>
+        {/* ── Sticky footer CTA ── */}
+        <div
+          className="px-5 py-4 flex-shrink-0"
+          style={{ borderTop: '1px solid var(--bg-border)' }}
+        >
           <button
             onClick={handleAdd}
-            disabled={!item.available}
+            disabled={!canOrder || !item.available || !onAdd || remaining === 0}
             className="btn-fresh w-full py-4 text-base justify-center"
             aria-live="polite"
           >
-            {added ? (
+            {!canOrder ? t('mustScanInShop', lang) : added ? (
               <>✓ {t('detailAddMore', lang)}</>
             ) : (
               <>{t('detailAddToOrder', lang)} — ${subtotal}</>

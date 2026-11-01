@@ -52,7 +52,7 @@ function ContactContent() {
         </section>
 
         <section className="rounded-3xl overflow-hidden flex flex-col" style={{ background: 'var(--bg-surface)', border: '1px solid var(--bg-border)' }}>
-          <iframe title={lang === 'km' ? 'ផែនទីទីតាំងហាង' : 'Cafe location map'} src={mapUrl} loading="lazy" referrerPolicy="no-referrer-when-downgrade" className="w-full min-h-80 flex-1" />
+          <iframe title={lang === 'km' ? 'ផែនទីទីតាំងហាង' : 'Cafe location map'} src={mapUrl} loading="lazy" referrerPolicy="no-referrer" className="w-full min-h-80 flex-1" />
           <div className="p-5 flex items-center justify-between gap-4">
             <div className="flex items-center gap-2" style={{ color: 'var(--text-primary)' }}><MapPin className="w-5 h-5" style={{ color: 'var(--primary)' }} aria-hidden="true" /><span className="font-semibold">{t('footerAddress', lang)}</span></div>
             <Link href={locationHref} className="text-sm font-semibold hover:underline shrink-0" style={{ color: 'var(--primary)' }}>{lang === 'km' ? 'មើលផែនទី' : 'View map'}</Link>

@@ -38,9 +38,8 @@ async function sendTelegramToChat(
 
   if (!res.ok) {
     console.error(`Telegram message failed (chat ${chatId}): HTTP ${res.status}`)
-    return
+    return false
   }
-
   for (const photo of photos) {
     try {
       const url = new URL(photo.url)
@@ -56,9 +55,10 @@ async function sendTelegramToChat(
       console.error(`Telegram photo could not be delivered (chat ${chatId})`)
     }
   }
+  return true
 }
 
-/** Send the same message to admin, kitchen, and/or default staff chats. */
+/** Send the same message to admin, kitchen, and/or default staff chats. Returns true once at least one chat receives the text alert. */
 export async function sendTelegram(message: string, photos: TelegramOrderPhoto[] = []) {
   try {
     const botToken = serverSecret('TELEGRAM_BOT_TOKEN')
@@ -68,16 +68,21 @@ export async function sendTelegram(message: string, photos: TelegramOrderPhoto[]
       console.warn(
         'Telegram not configured (need TELEGRAM_BOT_TOKEN and at least one chat id)'
       )
-      return
+      return false
     }
 
-    await Promise.allSettled(
+    const deliveries = await Promise.allSettled(
       chatIds.map(async (chatId) => {
-        try { await sendTelegramToChat(botToken, chatId, message, photos) }
-        catch { console.error(`Telegram alert could not be delivered (chat ${chatId})`) }
+        try { return await sendTelegramToChat(botToken, chatId, message, photos) }
+        catch {
+          console.error(`Telegram alert could not be delivered (chat ${chatId})`)
+          return false
+        }
       })
     )
+    return deliveries.some(result => result.status === 'fulfilled' && result.value)
   } catch {
     console.error('Telegram send failed')
+    return false
   }
 }

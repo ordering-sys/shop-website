@@ -266,12 +266,6 @@ export function LanguageDropdown() {
                   >
                     English
                   </p>
-                  <p
-                    className="text-xs leading-normal font-medium mt-0.5"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    English (EN)
-                  </p>
                 </div>
               </div>
 
@@ -311,12 +305,7 @@ export function LanguageDropdown() {
                   >
                     ភាសាខ្មែរ
                   </p>
-                  <p
-                    className="text-xs leading-normal font-medium mt-0.5"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    Khmer (KM)
-                  </p>
+
                 </div>
               </div>
 
