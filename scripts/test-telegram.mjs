@@ -21,40 +21,32 @@ function telegram(env, fetch) {
   })
 }
 
-test('sends summary before photos to each distinct staff chat', async () => {
+test('sends a text-only alert without link previews to each distinct staff chat', async () => {
   const calls = []
   const api = telegram({ TELEGRAM_BOT_TOKEN: 'test-only', TELEGRAM_CHAT_ID: ' 1 ', TELEGRAM_ADMIN_CHAT_ID: '1', TELEGRAM_KITCHEN_CHAT_ID: '2' }, async (url, init) => {
     calls.push({ method: url.split('/').at(-1), ...JSON.parse(init.body) })
     return { ok: true }
   })
-  assert.equal(await api.sendTelegram('<b>Order</b>', [{ url: 'https://images.example.com/item.jpg', caption: '2 × Coffee & milk' }]), true)
+  assert.equal(await api.sendTelegram('<b>Order</b>'), true)
   for (const id of ['1', '2']) {
     const sent = calls.filter(call => call.chat_id === id)
-    assert.deepEqual(sent.map(call => call.method), ['sendMessage', 'sendPhoto'])
-    assert.equal(sent[1].caption, '2 × Coffee & milk')
-    assert.equal(sent[1].parse_mode, undefined)
+    assert.deepEqual(sent.map(call => call.method), ['sendMessage'])
+    assert.equal(sent[0].text, '<b>Order</b>')
+    assert.equal(sent[0].link_preview_options.is_disabled, true)
   }
-  assert.equal(calls.length, 4)
+  assert.equal(calls.length, 2)
 })
 
-test('photo rejection and network failure do not stop subsequent images or other chats', async () => {
+test('network failure does not stop alerts to other chats', async () => {
   const calls = []
-  const api = telegram({ TELEGRAM_BOT_TOKEN: 'test-only', TELEGRAM_CHAT_ID: '1', TELEGRAM_KITCHEN_CHAT_ID: '2' }, async (url, init) => {
+  const api = telegram({ TELEGRAM_BOT_TOKEN: 'test-only', TELEGRAM_CHAT_ID: '1', TELEGRAM_KITCHEN_CHAT_ID: '2' }, async (_url, init) => {
     const body = JSON.parse(init.body)
     calls.push(body)
     if (body.chat_id === '1') throw new Error('Network unavailable')
-    return { ok: !url.endsWith('sendPhoto'), status: 400 }
+    return { ok: true }
   })
-  assert.equal(await api.sendTelegram('Order', [{ url: 'https://example.com/a.png', caption: 'A' }, { url: 'https://example.com/b.png', caption: 'B' }]), true)
-  assert.equal(calls.filter(call => call.chat_id === '2').length, 3)
-})
-
-test('skips invalid image schemes and bounds photo captions', async () => {
-  const calls = []
-  const api = telegram({ TELEGRAM_BOT_TOKEN: 'test-only', TELEGRAM_CHAT_ID: '1' }, async (_url, init) => { calls.push(JSON.parse(init.body)); return { ok: true } })
-  await api.sendTelegram('Order', [{ url: 'javascript:alert(1)', caption: 'Invalid' }, { url: 'https://example.com/a.jpg', caption: 'a'.repeat(1500) }])
-  assert.equal(calls.length, 2)
-  assert.equal(calls[1].caption.length, 1024)
+  assert.equal(await api.sendTelegram('Order'), true)
+  assert.equal(calls.filter(call => call.chat_id === '2').length, 1)
 })
 
 test('missing Telegram configuration makes no requests', async () => {
@@ -85,14 +77,15 @@ async function submitWithMenu(menuResult) {
   return { result, alerts, inserts }
 }
 
-test('order photos use database URLs and captions identify order, quantity and notes', async () => {
+test('order alert contains order details without image attachments', async () => {
   const { result, alerts, inserts } = await submitWithMenu({ data: [{ id: 'coffee', name_en: 'Coffee <milk>', name_km: 'Coffee', price: 4, category: 'Coffee', available: true, image_url: 'https://images.example.com/saved.jpg' }], error: null })
   assert.equal(result.success, true)
   assert.equal(inserts[0].total, 8)
   assert.equal(inserts[0].items[0].price, 4)
-  assert.equal(alerts[0][1][0].url, 'https://images.example.com/saved.jpg')
-  assert.match(alerts[0][1][0].caption, /2 × Coffee/)
-  assert.match(alerts[0][1][0].caption, /Less sugar/)
+  assert.equal(alerts[0].length, 1)
+  assert.match(alerts[0][0], /2 × Coffee/)
+  assert.match(alerts[0][0], /Less sugar/)
+  assert.doesNotMatch(alerts[0][0], /images\.example\.com/)
   assert.match(alerts[0][0], /Coffee &lt;milk&gt;/)
 })
 

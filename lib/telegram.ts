@@ -11,16 +11,10 @@ export function getTelegramAlertChatIds(): string[] {
   return [...new Set(ids.map(id => id.trim()))]
 }
 
-export interface TelegramOrderPhoto {
-  url: string
-  caption: string
-}
-
 async function sendTelegramToChat(
   botToken: string,
   chatId: string,
-  message: string,
-  photos: TelegramOrderPhoto[] = []
+  message: string
 ) {
   const res = await fetch(
     `https://api.telegram.org/bot${botToken}/sendMessage`,
@@ -31,6 +25,7 @@ async function sendTelegramToChat(
         chat_id: chatId,
         text: message,
         parse_mode: 'HTML',
+        link_preview_options: { is_disabled: true },
       }),
       signal: AbortSignal.timeout(10000),
     }
@@ -40,26 +35,11 @@ async function sendTelegramToChat(
     console.error(`Telegram message failed (chat ${chatId}): HTTP ${res.status}`)
     return false
   }
-  for (const photo of photos) {
-    try {
-      const url = new URL(photo.url)
-      if (!['https:', 'http:'].includes(url.protocol)) continue
-      const response = await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, photo: url.toString(), caption: photo.caption.slice(0, 1024) }),
-        signal: AbortSignal.timeout(10000),
-      })
-      if (!response.ok) console.error(`Telegram photo failed (chat ${chatId}): HTTP ${response.status}`)
-    } catch {
-      console.error(`Telegram photo could not be delivered (chat ${chatId})`)
-    }
-  }
   return true
 }
 
 /** Send the same message to admin, kitchen, and/or default staff chats. Returns true once at least one chat receives the text alert. */
-export async function sendTelegram(message: string, photos: TelegramOrderPhoto[] = []) {
+export async function sendTelegram(message: string) {
   try {
     const botToken = serverSecret('TELEGRAM_BOT_TOKEN')
     const chatIds = getTelegramAlertChatIds()
@@ -73,7 +53,7 @@ export async function sendTelegram(message: string, photos: TelegramOrderPhoto[]
 
     const deliveries = await Promise.allSettled(
       chatIds.map(async (chatId) => {
-        try { return await sendTelegramToChat(botToken, chatId, message, photos) }
+        try { return await sendTelegramToChat(botToken, chatId, message) }
         catch {
           console.error(`Telegram alert could not be delivered (chat ${chatId})`)
           return false

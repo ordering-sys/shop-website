@@ -3,7 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkTableAccess } from '@/lib/table-access'
 import type { LocationFix } from '@/lib/location'
-import { sendTelegram, type TelegramOrderPhoto } from '@/lib/telegram'
+import { sendTelegram } from '@/lib/telegram'
 import type { CartItem } from '@/lib/types'
 import { isSugarSchemaUnavailable, prepareOrderItems } from '@/lib/sugar'
 
@@ -170,33 +170,13 @@ export async function submitOrder(data: {
       .filter(Boolean)
       .join('\n')
 
-    // Resolve images from the saved menu rather than accepting client-supplied URLs.
-    // A lookup failure must not prevent an already-created order's text alert.
-    const photos: TelegramOrderPhoto[] = []
-    try {
-      for (const item of pricedItems) {
-        const url = menu.find(entry => entry.id === item.id)?.image_url
-        if (!url) continue
-        photos.push({ url, caption:
-          `Order #${order.id.slice(0, 8).toUpperCase()} · Table ${table.number}\n` +
-          `${item.quantity} × ${item.name_en || item.name_km}\n` +
-          (item.name_en && item.name_km ? `${item.name_km}\n` : '') +
-          (item.sugar_level != null ? `Sugar / កម្រិតជាតិស្ករ: ${item.sugar_level}%\n` : '') +
-          (item.notes?.trim() ? `📝 ${item.notes.trim()}` : ''),
-        })
-      }
-    } catch {
-      console.error('Menu images unavailable for order alert; sending text only')
-    }
-
     await sendTelegram(
       `🍽️ <b>NEW ORDER · ការកុម្ម៉ង់ថ្មី</b>\n\n` +
         `<b>Order:</b> <code>#${escapeTelegramHtml(order.id.slice(0, 8).toUpperCase())}</code>\n` +
         `<b>Table / តុ:</b> <b>${escapeTelegramHtml(table.number)}</b>\n\n` +
         `<b>ITEMS · បញ្ជីមុខម្ហូប</b>\n${itemList}\n\n` +
         `<b>Total / សរុប: $${total.toFixed(2)}</b>` +
-        (links ? `\n\n${links}` : ''),
-      photos
+        (links ? `\n\n${links}` : '')
     )
 
     return { success: true, orderId: order.id }
