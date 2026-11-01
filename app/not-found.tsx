@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
-import { NotFoundContent } from '@/components/site/NotFoundContent'
+import { NotFoundContent } from '@/components/marketing/NotFoundContent'
 
 export const metadata: Metadata = {
   title: 'Page not found',

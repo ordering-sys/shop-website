@@ -35,16 +35,25 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   /* Read persisted prefs on first mount */
   useEffect(() => {
-    const savedTheme = localStorage.getItem('cafe-theme') as Theme | null
-    const savedLang  = localStorage.getItem('cafe-lang')  as Lang  | null
-
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    const resolvedTheme: Theme = savedTheme ?? (prefersDark ? 'dark' : 'light')
-    const resolvedLang:  Lang  = savedLang  ?? 'km'
-
-    setTheme(resolvedTheme)
-    setLangState(resolvedLang)
-    setMounted(true)
+    let active = true
+    queueMicrotask(() => {
+      if (!active) return
+      let savedTheme: Theme | null = null
+      let savedLang: Lang | null = null
+      try {
+        const themeValue = localStorage.getItem('cafe-theme')
+        const langValue = localStorage.getItem('cafe-lang')
+        if (themeValue === 'dark' || themeValue === 'light') savedTheme = themeValue
+        if (langValue === 'en' || langValue === 'km') savedLang = langValue
+      } catch {
+        // Browser storage may be disabled; use system and language defaults.
+      }
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      setTheme(savedTheme ?? (prefersDark ? 'dark' : 'light'))
+      setLangState(savedLang ?? 'km')
+      setMounted(true)
+    })
+    return () => { active = false }
   }, [])
 
   /* Apply theme attr to <html> whenever it changes */
@@ -52,14 +61,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (!mounted) return
     document.documentElement.setAttribute('data-theme', theme)
     document.documentElement.setAttribute('lang', lang === 'km' ? 'km' : 'en')
-    localStorage.setItem('cafe-theme', theme)
+    try { localStorage.setItem('cafe-theme', theme) } catch { /* Storage is optional. */ }
   }, [theme, mounted, lang])
 
   /* Apply lang attr */
   useEffect(() => {
     if (!mounted) return
     document.documentElement.setAttribute('lang', lang === 'km' ? 'km' : 'en')
-    localStorage.setItem('cafe-lang', lang)
+    try { localStorage.setItem('cafe-lang', lang) } catch { /* Storage is optional. */ }
   }, [lang, mounted])
 
   const toggleTheme = useCallback(() => {
