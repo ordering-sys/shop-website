@@ -7,8 +7,9 @@ const strings = {
   navMap:         { en: 'Map',            km: 'ផែនទី' },
   navAbout:       { en: 'About',          km: 'អំពីយើង' },
   navContact:     { en: 'Contact',        km: 'ទំនាក់ទំនង' },
+  navPricing:     { en: 'Plans',          km: 'គម្រោង' },
   navOrderNow:    { en: 'Order Now',      km: 'កុម្ម៉ង់ឥឡូវ' },
-  cafeName:       { en: 'The Bean Haven', km: 'ហាងកាហ្វេ' },
+  cafeName:       { en: 'Table ordering', km: 'កុម្ម៉ង់តាម QR' },
   cafeTagline:    { en: 'Coffee · Food · Good Times', km: 'កាហ្វេ · អាហារ · ពេលវេលាល្អ' },
 
   /* ── Hero ── */
@@ -52,7 +53,7 @@ const strings = {
   storyBadge:     { en: 'About Us',             km: 'អំពីយើង' },
   storyTitle:     { en: 'Our Story',            km: 'រឿងរ៉ាវរបស់យើង' },
   storyQuote:     { en: 'A Space\nfor Good\nMoments ♡', km: 'កន្លែង\nសម្រាប់\nពេលល្អ ♡' },
-  storyDesc:      { en: 'The Bean Haven was born from a simple idea — great coffee brings people together. What started as a small passion project has grown into a cozy cafe where every cup tells a story.',
+  storyDesc:      { en: 'Enjoy a simpler way to order. Scan your table QR, explore your restaurant’s menu, and follow your order from your phone.',
                     km: 'ហាងរបស់យើងកើតមកពីគំនិតសាមញ្ញ — កាហ្វេល្អធ្វើឱ្យមនុស្សជួបគ្នា។ អ្វីដែលចាប់ផ្តើមជាគម្រោងចង់បានតូចមួយ បានក្លាយជាហាងកាហ្វេស្រួលដែលចាប់រៀបចំរឿងរ៉ាវគ្រប់ពែង។' },
   storyBtn:       { en: 'Learn More →',         km: 'ស្វែងយល់បន្ថែម →' },
   aboutExperienceBadge: { en: 'THE EXPERIENCE', km: 'បទពិសោធន៍' },
