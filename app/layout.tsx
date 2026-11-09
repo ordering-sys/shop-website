@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import './marketing.css'
+import 'lenis/dist/lenis.css'
 import { ThemeProvider } from '@/lib/theme-context'
 
 const siteTitle = 'Table ordering for small shops'
