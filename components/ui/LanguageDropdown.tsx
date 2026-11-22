@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { useTheme } from '@/lib/theme-context'
 import type { Lang } from '@/lib/i18n'
+import { GlobeLinesIcon } from '@/components/marketing/ShopIcons'
 
 /* ─── Flags (High-definition SVGs) ─── */
 function UKFlag() {
@@ -64,26 +65,18 @@ function CambodiaFlag() {
   )
 }
 
-/* ─── Globe Icon (matching Image 3 with continuous slow & fast spin support) ─── */
+/* ─── Globe icon: self-contained inline SVG (no external image file) ─── */
 function GlobeIcon({ isFast = false, size = 18 }: { isFast?: boolean; size?: number }) {
   return (
-    <div
+    <span
       className={`relative flex items-center justify-center flex-shrink-0 ${
         isFast ? 'globe-spin-fast' : 'globe-spin-slow'
       }`}
       style={{ width: size, height: size }}
       aria-hidden="true"
     >
-      {/* Globe image mask matching Image 3 */}
-      <div
-        className="w-full h-full"
-        style={{
-          backgroundColor: 'currentColor',
-          WebkitMask: `url('/globe-icon.png') no-repeat center / contain`,
-          mask: `url('/globe-icon.png') no-repeat center / contain`,
-        }}
-      />
-    </div>
+      <GlobeLinesIcon size={size} strokeWidth={1.7} />
+    </span>
   )
 }
 

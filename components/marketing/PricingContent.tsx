@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { ArrowUpRight, Check, ChevronDown, Mail, Plus, Store, Users } from 'lucide-react'
 import { useTheme } from '@/lib/theme-context'
 import { paymentLabel, subscriptionEmail, type PublicPricing } from '@/lib/pricing-types'
@@ -28,18 +28,18 @@ export function PricingContent({ pricing, embedded = false }: { pricing: PublicP
   const visibleGroups = groups.filter(group => (filter === 'all' || filter === group.type) && pricing.plans.some(plan => plan.offeringType === group.type))
 
   return <Container id={embedded ? 'plans' : undefined} className="ms-container ms-section ms-pricing-section">
-    <header className="ms-pricing-heading"><p className="ms-eyebrow">{km ? 'ការចាប់ផ្តើមដែលសមនឹងហាង' : 'Small shop. A plan that fits.'}</p><Title>{km ? <>ជ្រើសរើសការចាប់ផ្តើម។<br /><span>បន្ថែមជំនួយតាមតម្រូវការ។</span></> : <>A good start.<br /><span>A little care along the way.</span></>}</Title><p>{km ? 'ស្វែងរកប្រព័ន្ធដែលសមនឹងហាងរបស់អ្នក និងសេវាបន្ថែមដែលអ្នកត្រូវការ។ តម្លៃទាំងអស់គិតជា USD។' : 'Choose your system, then add the services you need. Clear scope, clear payment frequency. All prices in USD.'}</p></header>
+    <header className="ms-pricing-heading" data-reveal><p className="ms-eyebrow">{km ? 'ការចាប់ផ្តើមដែលសមនឹងហាង' : 'Small shop. A plan that fits.'}</p><Title>{km ? <>ជ្រើសរើសការចាប់ផ្តើម។<br /><span>បន្ថែមជំនួយតាមតម្រូវការ។</span></> : <>A good start.<br /><span>A little care along the way.</span></>}</Title><p>{km ? 'ស្វែងរកប្រព័ន្ធដែលសមនឹងហាងរបស់អ្នក និងសេវាបន្ថែមដែលអ្នកត្រូវការ។ តម្លៃទាំងអស់គិតជា USD។' : 'Choose your system, then add the services you need. Clear scope, clear payment frequency. All prices in USD.'}</p></header>
 
-    {!pricing.unavailable && pricing.plans.length > 0 && <div className="ms-plan-filters" role="group" aria-label={km ? 'ត្រងប្រភេទគម្រោង' : 'Filter pricing offers'}>{options.map(option => <button key={option.id} type="button" aria-pressed={filter === option.id} onClick={() => setFilter(option.id)}>{option.label}<span>{option.id === 'all' ? pricing.plans.length : pricing.plans.filter(plan => plan.offeringType === option.id).length}</span></button>)}</div>}
+    {!pricing.unavailable && pricing.plans.length > 0 && <div className="ms-plan-filters" data-reveal role="group" aria-label={km ? 'ត្រងប្រភេទគម្រោង' : 'Filter pricing offers'}>{options.map(option => <button key={option.id} type="button" aria-pressed={filter === option.id} onClick={() => setFilter(option.id)}>{option.label}<span>{option.id === 'all' ? pricing.plans.length : pricing.plans.filter(plan => plan.offeringType === option.id).length}</span></button>)}</div>}
 
     {pricing.unavailable ? <div role="alert" className="ms-pricing-empty"><Store size={29} aria-hidden="true" /><p>{km ? 'មិនអាចផ្ទុកគម្រោងបានទេ។ សូមផ្ទុកទំព័រឡើងវិញ ឬព្យាយាមពេលក្រោយ។' : 'Plans are taking a little longer to arrive. Please reload the page or try again later.'}</p></div> : !pricing.plans.length ? <div role="status" className="ms-pricing-empty"><Store size={29} aria-hidden="true" /><p>{km ? 'គម្រោងនឹងមានក្នុងពេលឆាប់ៗនេះ។ សូមទាក់ទងយើងសម្រាប់ព័ត៌មានបន្ថែម។' : 'Our plans will be here soon. Get in touch to talk about your shop in the meantime.'}</p></div> : <div id="pricing-offers" aria-live="polite" aria-atomic="false">
       {!visibleGroups.length && <div className="ms-pricing-empty"><p>{km ? 'មិនទាន់មានសេវាក្នុងប្រភេទនេះទេ។' : 'No offers in this category just yet.'}</p><button type="button" className="ms-inline-link" onClick={() => setFilter('all')}>{km ? 'មើលគម្រោងទាំងអស់' : 'See all offers'}<ArrowUpRight size={16} aria-hidden="true" /></button></div>}
-      {visibleGroups.map(group => <section key={group.type} className="ms-offer-group" aria-label={group.title}><div className="ms-offer-group-heading"><div><GroupTitle>{group.title}</GroupTitle><p>{group.description}</p></div><span className="ms-group-icon" aria-hidden="true">{group.type === 'system' ? <Store size={21} /> : <Plus size={21} />}</span></div><div className="ms-plans-grid">
-        {pricing.plans.filter(plan => plan.offeringType === group.type).map(plan => {
+      {visibleGroups.map(group => <section key={group.type} className="ms-offer-group" aria-label={group.title}><div className="ms-offer-group-heading" data-reveal><div><GroupTitle>{group.title}</GroupTitle><p>{group.description}</p></div><span className="ms-group-icon" aria-hidden="true">{group.type === 'system' ? <Store size={21} /> : <Plus size={21} />}</span></div><div className="ms-plans-grid">
+        {pricing.plans.filter(plan => plan.offeringType === group.type).map((plan, planIndex) => {
           const isOpen = expanded.includes(plan.id)
           const featured = plan.offeringType === 'system' && plan.billingInterval === 'one_time'
           const features = isOpen ? plan.features : plan.features.slice(0, 4)
-          return <article key={plan.id} className={`ms-plan-card ${featured ? 'ms-plan-build' : ''} ${plan.offeringType === 'addon' ? 'ms-plan-addon' : ''}`}>
+          return <article key={plan.id} data-reveal style={{ '--reveal-i': planIndex % 3 } as CSSProperties} className={`ms-plan-card ${featured ? 'ms-plan-build' : ''} ${plan.offeringType === 'addon' ? 'ms-plan-addon' : ''}`}>
             <p className="ms-plan-kind">{plan.offeringType === 'addon' ? (km ? 'ជ្រើសរើសសេវាបន្ថែម' : 'Optional add-on') : featured ? (km ? 'សាងសង់ម្តង សម្រាប់ហាងរបស់អ្នក' : 'Built once. Made for your shop.') : (km ? 'គម្រោងបន្ត' : 'Recurring system plan')}</p>
             <OfferTitle>{plan.name}</OfferTitle>
             <div className="ms-plan-price"><span>${plan.price.toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(plan.price) ? 0 : 2, maximumFractionDigits: 2 })}</span><span>USD {paymentLabel(plan.billingInterval, lang)}</span></div>

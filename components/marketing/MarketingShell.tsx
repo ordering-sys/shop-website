@@ -2,13 +2,50 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { ArrowUpRight, Menu, Moon, QrCode, Sprout, Sun, X } from 'lucide-react'
 import { LanguageDropdown } from '@/components/ui/LanguageDropdown'
+import { MarketingMotion } from '@/components/marketing/MarketingMotion'
 import { useTheme } from '@/lib/theme-context'
 
 export function MarketingShell({ children }: { children: ReactNode }) {
   const { lang, theme, toggleTheme } = useTheme()
+
+  /**
+   * One smooth theme change instead of thousands of per-element colour fades.
+   * With View Transitions the new theme grows in a circle from the toggle button;
+   * otherwise (or with reduced motion) the switch is instant and clean.
+   */
+  function switchTheme(event: ReactMouseEvent<HTMLButtonElement>) {
+    const root = document.documentElement
+    const next = theme === 'dark' ? 'light' : 'dark'
+    const apply = () => {
+      root.setAttribute('data-theme', next)
+      flushSync(() => toggleTheme())
+    }
+    const settle = () => requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('no-transition')))
+    root.classList.add('no-transition')
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!document.startViewTransition || reduceMotion) {
+      apply()
+      settle()
+      return
+    }
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const x = bounds.left + bounds.width / 2
+    const y = bounds.top + bounds.height / 2
+    const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))
+    const transition = document.startViewTransition(apply)
+    transition.ready.then(() => {
+      root.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        { duration: 700, easing: 'cubic-bezier(.65, 0, .35, 1)', pseudoElement: '::view-transition-new(root)' },
+      )
+    }).catch(() => { /* Transition skipped; the theme is already applied. */ })
+    transition.finished.finally(settle)
+  }
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const [activeSection, setActiveSection] = useState('')
@@ -33,21 +70,26 @@ export function MarketingShell({ children }: { children: ReactNode }) {
   }, [pathname])
 
   return <div className="marketing-site">
+    <MarketingMotion pathname={pathname} />
     <a href="#service-content" className="ms-skip">{km ? 'ទៅកាន់មាតិកា' : 'Skip to content'}</a>
     <header className="ms-header">
       <div className="ms-container ms-header-inner">
         <Link href="/" onClick={() => setMenuOpen(false)} className="ms-brand" aria-label={km ? 'កុម្ម៉ង់តាម QR ទំព័រដើម' : 'Table ordering home'}><span className="ms-brand-mark"><QrCode size={25} strokeWidth={1.8} aria-hidden="true" /></span><span>{km ? 'កុម្ម៉ង់តាម QR' : 'table ordering'}<small>{km ? 'សម្រាប់ហាងតូចរបស់អ្នក' : 'a little more connected'}</small></span></Link>
-        <nav className="ms-desktop-nav" aria-label={km ? 'រុករកសេវាកម្ម' : 'Service navigation'}>{links.map(link => <Link key={link.id} href={`/#${link.id}`} aria-current={pathname === '/' && activeSection === link.id ? 'location' : undefined}>{link.label}</Link>)}</nav>
+        <nav className="ms-desktop-nav" aria-label={km ? 'រុករកសេវាកម្ម' : 'Service navigation'}>{links.map(link => <Link key={link.id} href={`/#${link.id}`} scroll={pathname !== '/'} aria-current={pathname === '/' && activeSection === link.id ? 'location' : undefined}>{link.label}</Link>)}</nav>
         <div className="ms-header-actions">
           <LanguageDropdown />
-          <button type="button" onClick={toggleTheme} className="ms-theme-toggle" aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>{theme === 'dark' ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}</button>
-          <Link href="/#contact" className="ms-button ms-button-primary ms-header-cta">{km ? 'និយាយជាមួយយើង' : 'Let’s talk'}<ArrowUpRight size={16} aria-hidden="true" /></Link>
+          <button type="button" onClick={switchTheme} className="ms-theme-toggle" data-theme={theme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+            <span className="ms-theme-icon ms-theme-icon-sun" aria-hidden="true"><Sun size={18} /></span>
+            <span className="ms-theme-icon ms-theme-icon-moon" aria-hidden="true"><Moon size={18} /></span>
+          </button>
+          <Link href="/#contact" scroll={pathname !== '/'} className="ms-button ms-button-primary ms-header-cta">{km ? 'និយាយជាមួយយើង' : 'Let’s talk'}<ArrowUpRight size={16} aria-hidden="true" /></Link>
           <button type="button" className="ms-menu-toggle" onClick={() => setMenuOpen(value => !value)} aria-label={km ? 'ម៉ឺនុយរុករក' : 'Navigation menu'} aria-expanded={menuOpen} aria-controls="service-mobile-nav">{menuOpen ? <X size={22} aria-hidden="true" /> : <Menu size={22} aria-hidden="true" />}</button>
         </div>
       </div>
-      <nav id="service-mobile-nav" hidden={!menuOpen} className="ms-mobile-nav" onKeyDown={event => { if (event.key === 'Escape') setMenuOpen(false) }} aria-label={km ? 'រុករកលើទូរស័ព្ទ' : 'Mobile service navigation'}>{links.map(link => <Link key={link.id} href={`/#${link.id}`} onClick={() => setMenuOpen(false)}>{link.label}<ArrowUpRight size={16} aria-hidden="true" /></Link>)}<Link href="/#contact" onClick={() => setMenuOpen(false)}>{km ? 'ទាក់ទងយើង' : 'Talk about your shop'}<ArrowUpRight size={16} aria-hidden="true" /></Link></nav>
+      <nav id="service-mobile-nav" hidden={!menuOpen} className="ms-mobile-nav" onKeyDown={event => { if (event.key === 'Escape') setMenuOpen(false) }} aria-label={km ? 'រុករកលើទូរស័ព្ទ' : 'Mobile service navigation'}>{links.map(link => <Link key={link.id} href={`/#${link.id}`} scroll={pathname !== '/'} onClick={() => setMenuOpen(false)}>{link.label}<ArrowUpRight size={16} aria-hidden="true" /></Link>)}<Link href="/#contact" scroll={pathname !== '/'} onClick={() => setMenuOpen(false)}>{km ? 'ទាក់ទងយើង' : 'Talk about your shop'}<ArrowUpRight size={16} aria-hidden="true" /></Link></nav>
+      <div className="ms-scroll-progress" aria-hidden="true" />
     </header>
     <div id="service-content" tabIndex={-1}>{children}</div>
-    <footer className="ms-footer"><div className="ms-container"><div className="ms-footer-top"><div><Link href="/" className="ms-brand"><span className="ms-brand-mark"><QrCode size={24} aria-hidden="true" /></span><span>{km ? 'កុម្ម៉ង់តាម QR' : 'table ordering'}</span></Link><p>{km ? 'រៀបចំការកុម្ម៉ង់ឱ្យងាយស្រួល សម្រាប់ហាងតូចៗនៅកម្ពុជា។' : 'A simpler ordering day for small shops in Cambodia.'}</p></div><nav aria-label={km ? 'តំណបន្ថែម' : 'Footer navigation'}><Link href="/#benefits">{km ? 'អត្ថប្រយោជន៍' : 'The benefits'}</Link><Link href="/pricing">{km ? 'គម្រោងទាំងអស់' : 'All plans & services'}</Link><Link href="/#contact">{km ? 'ទាក់ទងយើង' : 'Get in touch'}</Link></nav></div><div className="ms-footer-bottom"><span><Sprout size={15} aria-hidden="true" />{km ? 'បង្កើតសម្រាប់ការចាប់ផ្តើមតូចៗ' : 'Made for small beginnings.'}</span><span>{km ? 'ម៉ឺនុយ · ការកុម្ម៉ង់ · ផ្ទះបាយ' : 'Your menu. Your team. Connected.'}</span></div></div></footer>
+    <footer className="ms-footer"><div className="ms-container"><div className="ms-footer-top"><div><Link href="/" className="ms-brand"><span className="ms-brand-mark"><QrCode size={24} aria-hidden="true" /></span><span>{km ? 'កុម្ម៉ង់តាម QR' : 'table ordering'}</span></Link><p>{km ? 'រៀបចំការកុម្ម៉ង់ឱ្យងាយស្រួល សម្រាប់ហាងតូចៗនៅកម្ពុជា។' : 'A simpler ordering day for small shops in Cambodia.'}</p></div><nav aria-label={km ? 'តំណបន្ថែម' : 'Footer navigation'}><Link href="/#benefits" scroll={pathname !== '/'}>{km ? 'អត្ថប្រយោជន៍' : 'The benefits'}</Link><Link href="/pricing">{km ? 'គម្រោងទាំងអស់' : 'All plans & services'}</Link><Link href="/#contact" scroll={pathname !== '/'}>{km ? 'ទាក់ទងយើង' : 'Get in touch'}</Link></nav></div><p className="ms3-footer-word" aria-hidden="true" data-reveal><span>{km ? 'កុម្ម៉ង់តាម QR' : 'table ordering'}</span></p><div className="ms-footer-bottom"><span><Sprout size={15} aria-hidden="true" />{km ? 'បង្កើតសម្រាប់ការចាប់ផ្តើមតូចៗ' : 'Made for small beginnings.'}</span><span>{km ? 'ម៉ឺនុយ · ការកុម្ម៉ង់ · ផ្ទះបាយ' : 'Your menu. Your team. Connected.'}</span></div></div></footer>
   </div>
 }

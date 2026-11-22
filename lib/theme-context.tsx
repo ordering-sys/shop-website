@@ -48,8 +48,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       } catch {
         // Browser storage may be disabled; use system and language defaults.
       }
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      setTheme(savedTheme ?? (prefersDark ? 'dark' : 'light'))
+      setTheme(savedTheme ?? 'light')
       setLangState(savedLang ?? 'km')
       setMounted(true)
     })
