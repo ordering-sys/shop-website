@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { SplitText } from '@/components/marketing/SplitText'
 import { ArrowRight, Check, ChefHat, Coffee, QrCode, Smartphone } from 'lucide-react'
 import { useTheme } from '@/lib/theme-context'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -68,9 +69,9 @@ export function OrderingStory() {
 
   return <section id="journey" ref={sectionRef} className="ms-story-section" aria-labelledby="ms-story-title">
     <div className="ms-container ms-story-heading">
-      <p className="ms-eyebrow">{km ? 'មើលលំហូរការកុម្ម៉ង់' : 'Follow one order'}</p>
-      <h2 id="ms-story-title">{km ? 'ពីការស្កេនដំបូង ទៅផ្ទះបាយ។' : <>From the first scan<br /><span>to the kitchen.</span></>}</h2>
-      <p>{km ? 'ទិដ្ឋភាពតូចមួយនៃដំណើររបស់ភ្ញៀវ និងក្រុមការងារ។' : 'See how the guest and your team stay connected through a simple order.'}</p>
+      <p className="ms-eyebrow" data-reveal>{km ? 'មើលលំហូរការកុម្ម៉ង់' : 'Follow one order'}</p>
+      <SplitText as="h2" id="ms-story-title" lines={km ? ['ពីការស្កេនដំបូង', { text: 'ទៅផ្ទះបាយ។', accent: true }] : ['From the first scan', { text: 'to the kitchen.', accent: true }]} />
+      <p data-reveal style={{ '--reveal-i': 2 } as CSSProperties}>{km ? 'ទិដ្ឋភាពតូចមួយនៃដំណើររបស់ភ្ញៀវ និងក្រុមការងារ។' : 'See how the guest and your team stay connected through a simple order.'}</p>
     </div>
     <div className="ms-container ms-story-grid">
       <div className="ms-story-steps">
@@ -79,6 +80,8 @@ export function OrderingStory() {
           key={label}
           data-story-step={index}
           className="ms-story-step"
+          data-reveal
+          style={{ '--reveal-i': index } as CSSProperties}
           aria-pressed={active === index}
           aria-controls="ms-story-preview"
           onClick={() => setActive(index as StoryStep)}

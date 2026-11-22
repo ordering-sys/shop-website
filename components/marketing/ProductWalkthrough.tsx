@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowRight, Check, ChefHat, Coffee, LayoutDashboard, RotateCcw, Smartphone, Sparkles, UtensilsCrossed } from 'lucide-react'
+import { ArrowRight, Check, ChefHat, Coffee, LayoutDashboard, RotateCcw, Smartphone, UtensilsCrossed } from 'lucide-react'
 import { useTheme } from '@/lib/theme-context'
+import { TapIcon } from '@/components/marketing/ShopIcons'
 
 type View = 'guest' | 'kitchen' | 'owner'
 type Status = 'idle' | 'received' | 'preparing' | 'ready'
@@ -65,7 +66,7 @@ export function ProductWalkthrough() {
         <button type="button" className="ms-demo-action" onClick={() => setView(status === 'idle' ? 'guest' : 'kitchen')}>{km ? 'ស្វែងយល់ពីលំហូរការកុម្ម៉ង់' : 'Follow the ordering flow'}<ArrowRight size={17} aria-hidden="true" /></button>
       </div>}
     </div>
-    <div className="ms-preview-foot"><Sparkles size={14} aria-hidden="true" /><span>{km ? 'គំរូអន្តរកម្ម · ទិន្នន័យគំរូប៉ុណ្ណោះ' : 'Interactive preview · Sample data only'}</span></div>
+    <div className="ms-preview-foot"><TapIcon size={14} /><span>{km ? 'គំរូអន្តរកម្ម · ទិន្នន័យគំរូប៉ុណ្ណោះ' : 'Interactive preview · Sample data only'}</span></div>
     <span className="sr-only" role="status">{labels[status]}</span>
   </div>
 }
