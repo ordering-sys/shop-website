@@ -19,3 +19,4 @@ This app introduces the QR ordering service, benefits, public plans, and optiona
 - Support Khmer and English, light/dark themes, mobile layouts, and accessible touch targets.
 - Read installed Next.js guides before framework changes. Use Server Components by default.
 - Run node --test tests/*.test.cjs and npm run build for relevant changes.
+

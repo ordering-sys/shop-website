@@ -7,6 +7,10 @@ export type PublicPlan = {
   staffLimit: number
   tableLimit: number
   features: string[]
+  /** Card look chosen in the admin (PLAN-STYLE-SETUP.sql); 'standard' / 'amber' before that. */
+  cardStyle: 'standard' | 'popular' | 'premium'
+  /** Card colour as lowercase hex, e.g. '#1e90ff'. */
+  accent: string
 }
 
 export type PublicPricing = {
@@ -31,3 +35,4 @@ export function paymentLabel(interval: PublicPlan['billingInterval'], lang: 'en'
   }
   return labels[interval][lang]
 }
+

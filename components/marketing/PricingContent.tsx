@@ -4,6 +4,7 @@ import { useState, type CSSProperties } from 'react'
 import { ArrowUpRight, Check, ChevronDown, Mail, Plus, Store, Users } from 'lucide-react'
 import { useTheme } from '@/lib/theme-context'
 import { paymentLabel, subscriptionEmail, type PublicPricing } from '@/lib/pricing-types'
+import { t } from '@/lib/i18n'
 
 type PlanFilter = 'all' | 'system' | 'addon'
 
@@ -39,14 +40,17 @@ export function PricingContent({ pricing, embedded = false }: { pricing: PublicP
           const isOpen = expanded.includes(plan.id)
           const featured = plan.offeringType === 'system' && plan.billingInterval === 'one_time'
           const features = isOpen ? plan.features : plan.features.slice(0, 4)
-          return <article key={plan.id} data-reveal style={{ '--reveal-i': planIndex % 3 } as CSSProperties} className={`ms-plan-card ${featured ? 'ms-plan-build' : ''} ${plan.offeringType === 'addon' ? 'ms-plan-addon' : ''}`}>
+          // The admin's card colour only tints secondary details (border, badge, price); buttons keep the brand colour.
+          const accent = plan.accent
+          return <article key={plan.id} data-reveal data-card-style={plan.cardStyle} style={{ '--reveal-i': planIndex % 3, '--ms-plan-accent': accent } as CSSProperties} className={`ms-plan-card ${featured || plan.cardStyle === 'popular' ? 'ms-plan-build' : ''} ${plan.cardStyle === 'premium' ? 'ms-plan-premium' : ''} ${plan.offeringType === 'addon' ? 'ms-plan-addon' : ''}`}>
+            {plan.cardStyle !== 'standard' && <span className="ms-plan-badge">{t(plan.cardStyle === 'popular' ? 'planMostPopular' : 'planPremium', lang)}</span>}
             <p className="ms-plan-kind">{plan.offeringType === 'addon' ? (km ? 'ជ្រើសរើសសេវាបន្ថែម' : 'Optional add-on') : featured ? (km ? 'សាងសង់ម្តង សម្រាប់ហាងរបស់អ្នក' : 'Built once. Made for your shop.') : (km ? 'គម្រោងបន្ត' : 'Recurring system plan')}</p>
             <OfferTitle>{plan.name}</OfferTitle>
             <div className="ms-plan-price"><span>${plan.price.toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(plan.price) ? 0 : 2, maximumFractionDigits: 2 })}</span><span>USD {paymentLabel(plan.billingInterval, lang)}</span></div>
             <p className="ms-plan-price-note">{plan.billingInterval === 'one_time' ? (km ? 'តម្លៃបង់ម្តងសម្រាប់វិសាលភាពដែលបានរាយ' : 'One payment for the scope listed below.') : (km ? 'តម្លៃសម្រាប់រយៈពេលនីមួយៗដែលបានបង្ហាញ' : 'Price per payment period shown above.')}</p>
             {plan.offeringType === 'system' && <div className="ms-plan-allowances"><span><Users size={15} aria-hidden="true" />{plan.staffLimit} {km ? 'បុគ្គលិក' : 'staff'}</span><span><Store size={15} aria-hidden="true" />{plan.tableLimit} {km ? 'តុ' : 'tables'}</span></div>}
             <div className="ms-plan-feature-area"><ul id={`features-${plan.id}`} className="ms-plan-features">{features.map((feature, index) => <li key={index}><Check size={16} aria-hidden="true" /><span>{feature}</span></li>)}</ul>{plan.features.length > 4 && <button type="button" className="ms-feature-toggle" aria-expanded={isOpen} aria-controls={`features-${plan.id}`} onClick={() => setExpanded(previous => isOpen ? previous.filter(id => id !== plan.id) : [...previous, plan.id])}>{isOpen ? (km ? 'បង្ហាញតិច' : 'Show less') : (km ? `មើលលក្ខណៈពិសេសទាំង ${plan.features.length}` : `See all ${plan.features.length} features`)}<ChevronDown size={16} className={isOpen ? 'is-expanded' : ''} aria-hidden="true" /></button>}</div>
-            {pricing.acceptingSubscriptions && pricing.contactEmail ? <a href={subscriptionEmail(pricing.contactEmail, plan)} className={`ms-button ${featured ? 'ms-button-primary' : 'ms-button-outline'} ms-plan-cta`} aria-label={`${km ? 'ទាក់ទងអំពី' : 'Enquire about'} ${plan.name}`}>{km ? 'និយាយជាមួយយើង' : plan.offeringType === 'addon' ? 'Ask about this service' : 'Let’s set up your shop'}<ArrowUpRight size={17} aria-hidden="true" /></a> : <p className="ms-plan-paused">{km ? 'មិនទាន់ទទួលសំណើថ្មីនៅពេលនេះទេ។ សូមព្យាយាមពេលក្រោយ។' : 'Enquiries are currently paused. Please check back soon.'}</p>}
+            {pricing.acceptingSubscriptions && pricing.contactEmail ? <a href={subscriptionEmail(pricing.contactEmail, plan)} className={`ms-button ${featured || plan.cardStyle !== 'standard' ? 'ms-button-primary' : 'ms-button-outline'} ms-plan-cta`} aria-label={`${km ? 'ទាក់ទងអំពី' : 'Enquire about'} ${plan.name}`}>{km ? 'និយាយជាមួយយើង' : plan.offeringType === 'addon' ? 'Ask about this service' : 'Let’s set up your shop'}<ArrowUpRight size={17} aria-hidden="true" /></a> : <p className="ms-plan-paused">{km ? 'មិនទាន់ទទួលសំណើថ្មីនៅពេលនេះទេ។ សូមព្យាយាមពេលក្រោយ។' : 'Enquiries are currently paused. Please check back soon.'}</p>}
           </article>
         })}
       </div></section>)}

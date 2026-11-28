@@ -165,6 +165,8 @@ const strings = {
   unavailable:        { en: 'Not available',                   km: 'អស់ស្តុក' },
   tapForDetail:       { en: 'Tap for details',                 km: 'ចុចដើម្បីមើល' },
   inCartBadge:        { en: 'In cart',                         km: 'ក្នុងកន្ត្រក' },
+  planMostPopular:    { en: 'Most popular',                    km: 'ពេញនិយមបំផុត' },
+  planPremium:        { en: 'Premium',                         km: 'ពិសេស' },
 } satisfies Record<string, { en: string; km: string }>
 
 export type StringKey = keyof typeof strings

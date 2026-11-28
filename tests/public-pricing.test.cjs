@@ -19,7 +19,7 @@ function load(file, mocks = {}) {
 const active = { id: 'starter', name: 'Starter', price: '12.50', monthly_price: '12.50', billing_interval: 'monthly', offering_type: 'system', staff_limit: 3, table_limit: 10, features: 'QR menu\r\n\nKitchen display\n', status: 'active', private_note: 'never publish' }
 const settings = { name: 'Ordering service', support_email: 'support@example.com', onboarding: 'open', private_note: 'secret' }
 
-function fixture({ plans = [active, { ...active, id: 'hidden', status: 'archived' }], config = settings, planError = false, settingsError = false, throws = false, legacy = false } = {}) {
+function fixture({ plans = [active, { ...active, id: 'hidden', status: 'archived' }], config = settings, planError = false, settingsError = false, throws = false, legacy = false, styleError = false } = {}) {
   const reads = []
   const db = { from(table) {
     assert.ok(['platform_plans', 'platform_settings'].includes(table), `Private table read: ${table}`)
@@ -32,7 +32,8 @@ function fixture({ plans = [active, { ...active, id: 'hidden', status: 'archived
       async maybeSingle() { return { data: config, error: settingsError } },
       then(resolve, reject) {
         const data = plans.filter(row => read.filters.every(([key, value]) => row[key] === value))
-        const error = legacy && read.columns.includes('billing_interval') ? { code: '42703' } : planError
+        const error = legacy && read.columns.includes('billing_interval') ? { code: '42703' }
+          : styleError && read.columns.includes('card_style') ? { code: '42703' } : planError
         return Promise.resolve({ data, error }).then(resolve, reject)
       },
     }
@@ -46,7 +47,7 @@ test('public pricing returns only active plans and explicit public fields', asyn
   const f = fixture()
   const result = await f.getPublicPricing()
   assert.equal(result.plans.length, 1)
-  assert.deepEqual(result.plans[0], { id: 'starter', name: 'Starter', price: 12.5, billingInterval: 'monthly', offeringType: 'system', staffLimit: 3, tableLimit: 10, features: ['QR menu', 'Kitchen display'] })
+  assert.deepEqual(result.plans[0], { id: 'starter', name: 'Starter', price: 12.5, billingInterval: 'monthly', offeringType: 'system', staffLimit: 3, tableLimit: 10, features: ['QR menu', 'Kitchen display'], cardStyle: 'standard', accent: '#d98a2b' })
   assert.equal(result.contactEmail, 'support@example.com')
   assert.equal(result.acceptingSubscriptions, true)
   assert.equal(JSON.stringify(result).includes('secret'), false)
@@ -127,4 +128,20 @@ test('pre-migration catalog falls back to monthly system pricing only for missin
   const f = fixture({ planError: { code: '42501' } })
   assert.equal((await f.getPublicPricing()).unavailable, true)
   assert.equal(f.reads.length, 2)
+})
+
+test('plan card style and colour are read separately and fall back safely', async () => {
+  const plans = [
+    { ...active, card_style: 'popular', accent: 'teal' },
+    { ...active, id: 'hex', name: 'Hex', card_style: 'premium', accent: '#1E90FF' },
+    { ...active, id: 'odd', name: 'Odd', card_style: 'flashy', accent: 'toString' },
+  ]
+  const f = fixture({ plans })
+  const result = await f.getPublicPricing()
+  assert.deepEqual(result.plans.map(plan => [plan.id, plan.cardStyle, plan.accent]), [['starter', 'popular', '#119c88'], ['hex', 'premium', '#1e90ff'], ['odd', 'standard', '#d98a2b']])
+  const styleRead = f.reads.find(read => read.columns === 'id, card_style, accent')
+  assert.ok(styleRead, 'style columns are read with an explicit list')
+  assert.deepEqual(styleRead.filters, [['status', 'active']])
+  // Before PLAN-STYLE-SETUP.sql (or any style read error) every card is standard amber.
+  assert.deepEqual((await fixture({ plans, styleError: true }).getPublicPricing()).plans.map(plan => [plan.cardStyle, plan.accent]), [['standard', '#d98a2b'], ['standard', '#d98a2b'], ['standard', '#d98a2b']])
 })
